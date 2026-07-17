@@ -8,12 +8,11 @@ export const GET: APIRoute = async ({ url, cookies }) => {
     const code = url.searchParams.get('code');
     if (!code) return new Response('Missing code', { status: 400 });
 
-    // Use form-encoded body — the standard OAuth 2.0 format GitHub expects
+    // Use form-encoded body — standard OAuth 2.0
     const tokenBody = new URLSearchParams({
       client_id: AUTH.clientId,
       client_secret: AUTH.clientSecret,
       code,
-      redirect_uri: AUTH.callbackUrl,
     });
 
     const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
@@ -25,10 +24,25 @@ export const GET: APIRoute = async ({ url, cookies }) => {
       body: tokenBody.toString(),
     });
 
-    if (!tokenRes.ok) return new Response('Token exchange failed', { status: 500 });
+    if (!tokenRes.ok) return new Response('Token exchange HTTP failed: ' + tokenRes.status, { status: 500 });
     const json = await tokenRes.json();
     const access_token = json.access_token;
-    if (!access_token) return new Response(`No access token: ${JSON.stringify(json)}`, { status: 500 });
+    if (!access_token) {
+      // Show diagnostic info directly in the browser (client_id is public, code expires in 10 min)
+      return new Response(
+        `GitHub error: ${json.error}\n` +
+        `Description: ${json.error_description}\n\n` +
+        `Diagnostics:\n` +
+        `  client_id (first 8): ${AUTH.clientId.slice(0, 8)}...\n` +
+        `  client_id length: ${AUTH.clientId.length}\n` +
+        `  callback URL: ${AUTH.callbackUrl}\n` +
+        `  code length: ${code.length}\n` +
+        `  code prefix: ${code.slice(0, 4)}...\n\n` +
+        `Compare the client_id prefix above with the Client ID shown at\n` +
+        `https://github.com/settings/applications/3734695`,
+        { status: 401, headers: { 'Content-Type': 'text/plain' } },
+      );
+    }
 
     const user = await getUser(access_token);
 
