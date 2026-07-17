@@ -1,31 +1,30 @@
 export const SITE = {
   title: 'Kortex',
-  tagline: 'My second brain',
+  tagline: 'Second brain',
   description:
-    'A calm, personal knowledge hub — notes, links, ideas, tasks and files, all in one place.',
-  /**
-   * Fill these in AFTER you create your GitHub repo.
-   * This unlocks the "+ Add" quick-capture button and the "Suggest" (contribute) button.
-   * Example: owner: 'hrsing', repo: 'Kortex'
-   */
+    'Your personal knowledge hub — notes, links, ideas, tasks and files. All in one place, accessible anywhere.',
   github: {
-    owner: '', // your GitHub username
+    owner: 'curious04',
     repo: 'Kortex',
     branch: 'main',
   },
+};
+
+/** GitHub OAuth App settings — set these in your .env file */
+export const AUTH = {
+  clientId: import.meta.env.GITHUB_CLIENT_ID ?? '',
+  clientSecret: import.meta.env.GITHUB_CLIENT_SECRET ?? '',
+  callbackUrl: import.meta.env.AUTH_CALLBACK_URL ?? 'http://localhost:4321/api/auth/callback',
 };
 
 export function isGithubConfigured() {
   return Boolean(SITE.github.owner);
 }
 
-/** URL that opens GitHub's "create new file" page in your content folder (quick add for you). */
-export function newEntryUrl() {
-  const { owner, repo, branch } = SITE.github;
-  return `https://github.com/${owner}/${repo}/new/${branch}?filename=content/notes/new-note.md`;
+export function isOwner(username: string) {
+  return username.toLowerCase() === SITE.github.owner.toLowerCase();
 }
 
-/** URL to open the repo (used by the "Suggest" / contribute button for visitors). */
 export function repoUrl() {
   const { owner, repo } = SITE.github;
   return `https://github.com/${owner}/${repo}`;

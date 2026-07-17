@@ -1,110 +1,291 @@
 ---
 import "../styles/global.css";
-import { SITE, isGithubConfigured, newEntryUrl, repoUrl } from "../config";
+import { SITE } from "../config";
+import { getSession } from "../lib/auth";
+import { isOwner } from "../config";
 
 interface Props {
   title?: string;
   description?: string;
 }
 const { title, description } = Astro.props;
-const pageTitle = title ? `${title} · ${SITE.title}` : `${SITE.title} — ${SITE.tagline}`;
-const base = import.meta.env.BASE_URL;
-const configured = isGithubConfigured();
+const pageTitle = title ? `${title} — ${SITE.title}` : `${SITE.title} — ${SITE.tagline}`;
+const session = getSession(Astro.cookies);
+const owner = session ? isOwner(session.username) : false;
 ---
 
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description ?? SITE.description} />
-    <meta name="theme-color" content="#4f46e5" />
-    <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
+    <meta name="theme-color" content="#0a0a0c" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{pageTitle}</title>
-    <script is:inline>
-      // Apply saved theme before paint to avoid a flash.
-      (function () {
-        const saved = localStorage.getItem("kortex-theme");
-        const theme =
-          saved ||
-          (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-        document.documentElement.setAttribute("data-theme", theme);
-      })();
-    </script>
   </head>
   <body>
     <header class="site-header">
       <div class="wrap">
-        <a class="brand" href={base}>
-          <img class="mark" src={`${base}favicon.svg`} alt="" />
-          <span>{SITE.title} <span class="tag">/ {SITE.tagline}</span></span>
+        <a class="brand" href="/">
+          <img class="mark" src="/favicon.svg" alt="" />
+          <span>Kortex</span>
+          <span class="sep">/</span>
+          <span class="sub">second brain</span>
         </a>
         <div class="header-spacer"></div>
-        {
-          configured ? (
-            <a
-              class="btn ghost"
-              href={repoUrl()}
-              target="_blank"
-              rel="noopener"
-              title="Suggest an addition (opens a Pull Request)"
-            >
-              Suggest
-            </a>
-          ) : null
-        }
-        {
-          configured ? (
-            <a class="btn" href={newEntryUrl()} target="_blank" rel="noopener">
-              + Add
-            </a>
+        <nav class="header-nav">
+          {session ? (
+            <>
+              {owner && (
+                <button class="btn sm" id="btn-pulls" title="Review contributions">
+                  PRs
+                </button>
+              )}
+              <button class="btn primary" id="btn-add">
+                + Add
+              </button>
+              <img class="avatar" src={session.avatar} alt={session.username} title={session.username} />
+              <a class="btn sm" href="/api/auth/logout">Sign out</a>
+            </>
           ) : (
-            <a class="btn" href={`${base}#add`}>+ Add</a>
-          )
-        }
-        <button
-          class="icon-btn"
-          id="theme-toggle"
-          title="Toggle light / dark"
-          aria-label="Toggle theme"
-        >
-          <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
-        </button>
+            <a class="btn" href="/api/auth/login">Sign in with GitHub</a>
+          )}
+        </nav>
       </div>
     </header>
 
-    <main>
-      <div class="wrap">
-        <slot />
-      </div>
-    </main>
+    <slot />
 
     <footer class="site-footer">
       <div class="wrap">
-        Kortex — your knowledge, versioned and yours forever.
+        <p>Kortex — your knowledge, versioned and yours forever.</p>
       </div>
     </footer>
 
-    <script is:inline>
-      const btn = document.getElementById("theme-toggle");
-      const icon = document.getElementById("theme-icon");
-      const root = document.documentElement;
-      const MOON =
-        '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
-      const SUN =
-        '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>';
-      function sync() {
-        icon.innerHTML =
-          root.getAttribute("data-theme") === "dark" ? SUN : MOON;
+    <!-- Toast container -->
+    <div class="toast-container" id="toasts"></div>
+
+    <!-- Add Content Modal -->
+    <div class="modal-backdrop" id="modal-add">
+      <div class="modal">
+        <h2>Add to your brain</h2>
+        <form id="form-add">
+          <label for="add-title">Title</label>
+          <input id="add-title" name="title" type="text" placeholder="What's on your mind?" required />
+
+          <label for="add-type">Type</label>
+          <select id="add-type" name="type">
+            <option value="note">Note</option>
+            <option value="link">Link</option>
+            <option value="idea">Idea</option>
+            <option value="task">Task</option>
+            <option value="routine">Routine</option>
+            <option value="reference">Reference</option>
+            <option value="doc">Document</option>
+          </select>
+
+          <label for="add-url">URL (optional)</label>
+          <input id="add-url" name="url" type="url" placeholder="https://..." />
+
+          <label for="add-tags">Tags (comma-separated)</label>
+          <input id="add-tags" name="tags" type="text" placeholder="ai, productivity, idea" />
+
+          <label for="add-content">Content</label>
+          <textarea id="add-content" name="content" placeholder="Write anything — markdown supported..."></textarea>
+
+          <label>Attach file</label>
+          <div class="file-drop" id="file-drop">
+            Drop a file here or click to upload
+            <input type="file" id="file-input" style="display:none" />
+          </div>
+
+          <div class="actions">
+            <button type="button" class="btn" id="btn-cancel">Cancel</button>
+            <button type="submit" class="btn primary">Publish</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- PR Review Modal -->
+    <div class="modal-backdrop" id="modal-pulls">
+      <div class="modal">
+        <h2>Pending contributions</h2>
+        <div id="pr-list">
+          <p style="color:var(--text-tertiary);font-size:0.88rem;">Loading...</p>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn" id="btn-close-pulls">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <script is:inline define:vars={{ owner }}>
+      // ========== Toast system ==========
+      function toast(message, type = 'info') {
+        const el = document.createElement('div');
+        el.className = `toast ${type}`;
+        el.textContent = message;
+        document.getElementById('toasts').appendChild(el);
+        setTimeout(() => el.remove(), 4500);
       }
-      sync();
-      btn?.addEventListener("click", () => {
-        const next =
-          root.getAttribute("data-theme") === "dark" ? "light" : "dark";
-        root.setAttribute("data-theme", next);
-        localStorage.setItem("kortex-theme", next);
-        sync();
+
+      // ========== Add Modal ==========
+      const modal = document.getElementById('modal-add');
+      const btnAdd = document.getElementById('btn-add');
+      const btnCancel = document.getElementById('btn-cancel');
+      const form = document.getElementById('form-add');
+      const fileDrop = document.getElementById('file-drop');
+      const fileInput = document.getElementById('file-input');
+      let uploadedFileUrl = null;
+
+      btnAdd?.addEventListener('click', () => modal.classList.add('open'));
+      btnCancel?.addEventListener('click', () => modal.classList.remove('open'));
+      modal?.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.remove('open');
       });
+
+      // File upload
+      fileDrop?.addEventListener('click', () => fileInput.click());
+      fileInput?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        fileDrop.textContent = `Uploading ${file.name}...`;
+
+        const fd = new FormData();
+        fd.append('file', file);
+
+        // Use release endpoint for files > 1MB, regular upload for smaller
+        const endpoint = file.size > 1024 * 1024 ? '/api/content/upload-release' : '/api/content/upload';
+
+        try {
+          const res = await fetch(endpoint, { method: 'POST', body: fd });
+          const data = await res.json();
+          if (data.success) {
+            uploadedFileUrl = data.url;
+            fileDrop.textContent = `Attached: ${file.name}`;
+            toast('File uploaded successfully', 'success');
+          } else {
+            throw new Error(data.error);
+          }
+        } catch (err) {
+          fileDrop.textContent = 'Upload failed — click to retry';
+          toast(err.message || 'Upload failed', 'error');
+        }
+      });
+
+      form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(form));
+        if (uploadedFileUrl) {
+          data.content = (data.content || '') + `\n\n[Attached file](${uploadedFileUrl})`;
+        }
+
+        try {
+          toast('Saving...', 'info');
+          const res = await fetch('/api/content/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
+          const result = await res.json();
+
+          if (result.success) {
+            modal.classList.remove('open');
+            form.reset();
+            uploadedFileUrl = null;
+            fileDrop.textContent = 'Drop a file here or click to upload';
+
+            if (result.action === 'committed') {
+              toast('Published! Redeploying...', 'success');
+            } else if (result.action === 'pr_created') {
+              toast('Suggestion submitted as a Pull Request!', 'success');
+            }
+            // Reload after short delay to show updated content
+            setTimeout(() => location.reload(), 2000);
+          } else {
+            throw new Error(result.error);
+          }
+        } catch (err) {
+          toast(err.message || 'Something went wrong', 'error');
+        }
+      });
+
+      // ========== PR Review Modal ==========
+      const modalPulls = document.getElementById('modal-pulls');
+      const btnPulls = document.getElementById('btn-pulls');
+      const btnClosePulls = document.getElementById('btn-close-pulls');
+      const prList = document.getElementById('pr-list');
+
+      btnPulls?.addEventListener('click', async () => {
+        modalPulls.classList.add('open');
+        prList.innerHTML = '<p style="color:var(--text-tertiary);font-size:0.88rem;">Loading...</p>';
+
+        try {
+          const res = await fetch('/api/pulls');
+          const pulls = await res.json();
+
+          if (!pulls.length) {
+            prList.innerHTML = '<p style="color:var(--text-tertiary);font-size:0.88rem;">No pending contributions.</p>';
+            return;
+          }
+
+          prList.innerHTML = pulls.map(pr => `
+            <div class="pr-item">
+              <img class="avatar" src="${pr.avatar}" alt="${pr.user}" />
+              <div class="pr-info">
+                <div class="pr-title">${pr.title}</div>
+                <div class="pr-meta">by @${pr.user} · ${new Date(pr.created).toLocaleDateString()}</div>
+              </div>
+              <div class="pr-actions">
+                <button class="btn sm primary" onclick="handlePR(${pr.number}, 'merge')">Merge</button>
+                <button class="btn sm" onclick="handlePR(${pr.number}, 'close')">Close</button>
+              </div>
+            </div>
+          `).join('');
+        } catch (err) {
+          prList.innerHTML = '<p style="color:var(--text-tertiary);">Failed to load PRs</p>';
+        }
+      });
+
+      btnClosePulls?.addEventListener('click', () => modalPulls.classList.remove('open'));
+      modalPulls?.addEventListener('click', (e) => {
+        if (e.target === modalPulls) modalPulls.classList.remove('open');
+      });
+
+      window.handlePR = async function(number, action) {
+        try {
+          const res = await fetch('/api/pulls', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ number, action }),
+          });
+          const result = await res.json();
+          if (result.success) {
+            toast(`PR ${action === 'merge' ? 'merged' : 'closed'} successfully!`, 'success');
+            btnPulls.click(); // Refresh list
+          } else {
+            throw new Error(result.error);
+          }
+        } catch (err) {
+          toast(err.message || 'Action failed', 'error');
+        }
+      };
+
+      // ========== Scroll animations ==========
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('animate-in');
+              observer.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.08 }
+      );
+      document.querySelectorAll('[data-animate]').forEach((el) => observer.observe(el));
     </script>
   </body>
 </html>
