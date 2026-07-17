@@ -9,7 +9,7 @@ export const SITE = {
    * Example: owner: 'hrsing', repo: 'Kortex'
    */
   github: {
-    owner: '', // your GitHub username
+    owner: 'curious04', // your GitHub username
     repo: 'Kortex',
     branch: 'main',
   },
