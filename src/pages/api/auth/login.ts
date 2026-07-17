@@ -2,13 +2,27 @@ import type { APIRoute } from 'astro';
 import { AUTH } from '../../../config';
 
 export const GET: APIRoute = async () => {
-  const params = new URLSearchParams({
-    client_id: AUTH.clientId,
-    redirect_uri: AUTH.callbackUrl,
-    scope: 'repo',
-  });
-  return new Response(null, {
-    status: 302,
-    headers: { Location: `https://github.com/login/oauth/authorize?${params}` },
-  });
+  try {
+    if (!AUTH.clientId) {
+      return new Response(
+        JSON.stringify({ error: 'GITHUB_CLIENT_ID is not configured. Set it in your Vercel environment variables.' }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+    const params = new URLSearchParams({
+      client_id: AUTH.clientId,
+      redirect_uri: AUTH.callbackUrl,
+      scope: 'repo',
+    });
+    return Response.redirect(
+      `https://github.com/login/oauth/authorize?${params.toString()}`,
+      302,
+    );
+  } catch (err) {
+    console.error('[kortex] login error:', err);
+    return new Response(
+      JSON.stringify({ error: String(err) }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
 };

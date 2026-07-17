@@ -48,6 +48,10 @@
 			"dest": "_render"
 		},
 		{
+			"src": "^/api/health/?$",
+			"dest": "_render"
+		},
+		{
 			"src": "^/api/pulls/?$",
 			"dest": "_render"
 		}

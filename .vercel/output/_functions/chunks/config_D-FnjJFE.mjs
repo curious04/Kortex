@@ -11,7 +11,8 @@ const SITE = {
 const AUTH = {
   clientId: process.env.GITHUB_CLIENT_ID ?? "",
   clientSecret: process.env.GITHUB_CLIENT_SECRET ?? "",
-  callbackUrl: process.env.AUTH_CALLBACK_URL ?? "http://localhost:4321/api/auth/callback"
+  // Fallback to the known production URL so auth works even if env var is missing
+  callbackUrl: process.env.AUTH_CALLBACK_URL ?? "https://kortex-sandy.vercel.app/api/auth/callback"
 };
 function isOwner(username) {
   return username.toLowerCase() === SITE.github.owner.toLowerCase();
