@@ -1,109 +1,10 @@
----
-import "../styles/global.css";
-import { SITE } from "../config";
+<!DOCTYPE html><html lang="en"> <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Your personal knowledge hub — notes, links, ideas, tasks and files. All in one place, accessible anywhere."><meta name="theme-color" content="#0a0a0c"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><title>Astro Docs — Kortex</title><link rel="stylesheet" href="/_astro/_slug_.DyP-3lEJ.css"></head> <body> <header class="site-header"> <div class="wrap"> <a class="brand" href="/"> <img class="mark" src="/favicon.svg" alt=""> <span>Kortex</span> <span class="sep">/</span> <span class="sub">second brain</span> </a> <div class="header-spacer"></div> <nav class="header-nav" id="auth-area"> <!-- Populated client-side via /api/auth/me to work with prerendered pages --> </nav> </div> </header>  <div class="wrap"> <article class="article"> <a class="back" href="/">&larr; Back</a> <h1 class="animate-in">Astro Docs</h1> <div class="meta animate-in delay-1"> <span class="type">link</span> <span class="date">2026-07-17</span> <span class="tag">reference</span><span class="tag">web-dev</span> </div> <a class="linkout animate-in delay-2" href="https://docs.astro.build" target="_blank" rel="noopener">
+Open link &nearr;
+</a>  <div class="prose animate-in delay-2"> <p>Saved reference for how this site is built. A link entry just needs a <code>url</code> in
+its header — it shows up as a bookmark card and opens in a new tab.</p> </div> </article> </div>  <footer class="site-footer"> <div class="wrap"> <p>Kortex — your knowledge, versioned and yours forever.</p> </div> </footer> <!-- Toast container --> <div class="toast-container" id="toasts"></div> <!-- Add Content Modal --> <div class="modal-backdrop" id="modal-add"> <div class="modal"> <h2>Add to your brain</h2> <form id="form-add"> <label for="add-title">Title</label> <input id="add-title" name="title" type="text" placeholder="What's on your mind?" required> <label for="add-type">Type</label> <select id="add-type" name="type"> <option value="note">Note</option> <option value="link">Link</option> <option value="idea">Idea</option> <option value="task">Task</option> <option value="routine">Routine</option> <option value="reference">Reference</option> <option value="doc">Document</option> </select> <label for="add-url">URL (optional)</label> <input id="add-url" name="url" type="url" placeholder="https://..."> <label for="add-tags">Tags (comma-separated)</label> <input id="add-tags" name="tags" type="text" placeholder="ai, productivity, idea"> <label for="add-content">Content</label> <textarea id="add-content" name="content" placeholder="Write anything — markdown supported..."></textarea> <label>Attach file</label> <div class="file-drop" id="file-drop">
+Drop a file here or click to upload
+<input type="file" id="file-input" style="display:none"> </div> <div class="actions"> <button type="button" class="btn" id="btn-cancel">Cancel</button> <button type="submit" class="btn primary">Publish</button> </div> </form> </div> </div> <!-- PR Review Modal --> <div class="modal-backdrop" id="modal-pulls"> <div class="modal"> <h2>Pending contributions</h2> <div id="pr-list"> <p style="color:var(--text-tertiary);font-size:0.88rem;">Loading...</p> </div> <div class="actions"> <button type="button" class="btn" id="btn-close-pulls">Close</button> </div> </div> </div> <script>(function(){const ghOwner = "curious04";
 
-interface Props {
-  title?: string;
-  description?: string;
-}
-const { title, description } = Astro.props;
-const pageTitle = title ? `${title} — ${SITE.title}` : `${SITE.title} — ${SITE.tagline}`;
-const ghOwner = SITE.github.owner;
----
-
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content={description ?? SITE.description} />
-    <meta name="theme-color" content="#0a0a0c" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>{pageTitle}</title>
-  </head>
-  <body>
-    <header class="site-header">
-      <div class="wrap">
-        <a class="brand" href="/">
-          <img class="mark" src="/favicon.svg" alt="" />
-          <span>Kortex</span>
-          <span class="sep">/</span>
-          <span class="sub">second brain</span>
-        </a>
-        <div class="header-spacer"></div>
-        <nav class="header-nav" id="auth-area">
-          <!-- Populated client-side via /api/auth/me to work with prerendered pages -->
-        </nav>
-      </div>
-    </header>
-
-    <slot />
-
-    <footer class="site-footer">
-      <div class="wrap">
-        <p>Kortex — your knowledge, versioned and yours forever.</p>
-      </div>
-    </footer>
-
-    <!-- Toast container -->
-    <div class="toast-container" id="toasts"></div>
-
-    <!-- Add Content Modal -->
-    <div class="modal-backdrop" id="modal-add">
-      <div class="modal">
-        <h2>Add to your brain</h2>
-        <form id="form-add">
-          <label for="add-title">Title</label>
-          <input id="add-title" name="title" type="text" placeholder="What's on your mind?" required />
-
-          <label for="add-type">Type</label>
-          <select id="add-type" name="type">
-            <option value="note">Note</option>
-            <option value="link">Link</option>
-            <option value="idea">Idea</option>
-            <option value="task">Task</option>
-            <option value="routine">Routine</option>
-            <option value="reference">Reference</option>
-            <option value="doc">Document</option>
-          </select>
-
-          <label for="add-url">URL (optional)</label>
-          <input id="add-url" name="url" type="url" placeholder="https://..." />
-
-          <label for="add-tags">Tags (comma-separated)</label>
-          <input id="add-tags" name="tags" type="text" placeholder="ai, productivity, idea" />
-
-          <label for="add-content">Content</label>
-          <textarea id="add-content" name="content" placeholder="Write anything — markdown supported..."></textarea>
-
-          <label>Attach file</label>
-          <div class="file-drop" id="file-drop">
-            Drop a file here or click to upload
-            <input type="file" id="file-input" style="display:none" />
-          </div>
-
-          <div class="actions">
-            <button type="button" class="btn" id="btn-cancel">Cancel</button>
-            <button type="submit" class="btn primary">Publish</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- PR Review Modal -->
-    <div class="modal-backdrop" id="modal-pulls">
-      <div class="modal">
-        <h2>Pending contributions</h2>
-        <div id="pr-list">
-          <p style="color:var(--text-tertiary);font-size:0.88rem;">Loading...</p>
-        </div>
-        <div class="actions">
-          <button type="button" class="btn" id="btn-close-pulls">Close</button>
-        </div>
-      </div>
-    </div>
-
-    <script is:inline define:vars={{ ghOwner }}>
       // ========== Auth (client-side) ==========
       const authArea = document.getElementById('auth-area');
 
@@ -301,6 +202,4 @@ const ghOwner = SITE.github.owner;
 
       // Boot
       loadAuth();
-    </script>
-  </body>
-</html>
+    })();</script> </body> </html>

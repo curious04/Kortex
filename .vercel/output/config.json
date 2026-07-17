@@ -50,14 +50,6 @@
 		{
 			"src": "^/api/pulls/?$",
 			"dest": "_render"
-		},
-		{
-			"src": "^/$",
-			"dest": "_render"
-		},
-		{
-			"src": "^(?:/(.*?))?/?$",
-			"dest": "_render"
 		}
 	]
 }

@@ -3,6 +3,9 @@ import { defineConfig } from 'astro/config';
 import vercel from '@astrojs/vercel';
 
 export default defineConfig({
+  // server mode with per-page prerendering:
+  // content pages opt-in to static with `export const prerender = true`,
+  // API routes remain server-rendered.
   output: 'server',
   adapter: vercel(),
   site: process.env.SITE_URL || 'http://localhost:4321',
