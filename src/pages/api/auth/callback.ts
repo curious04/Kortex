@@ -8,15 +8,21 @@ export const GET: APIRoute = async ({ url, cookies }) => {
     const code = url.searchParams.get('code');
     if (!code) return new Response('Missing code', { status: 400 });
 
+    // Use form-encoded body — the standard OAuth 2.0 format GitHub expects
+    const tokenBody = new URLSearchParams({
+      client_id: AUTH.clientId,
+      client_secret: AUTH.clientSecret,
+      code,
+      redirect_uri: AUTH.callbackUrl,
+    });
+
     const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: AUTH.clientId,
-        client_secret: AUTH.clientSecret,
-        code,
-        redirect_uri: AUTH.callbackUrl,
-      }),
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: tokenBody.toString(),
     });
 
     if (!tokenRes.ok) return new Response('Token exchange failed', { status: 500 });

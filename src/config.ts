@@ -12,10 +12,10 @@ export const SITE = {
 
 /** GitHub OAuth App settings — set these in your Vercel environment variables */
 export const AUTH = {
-  clientId: process.env.GITHUB_CLIENT_ID ?? '',
-  clientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
+  clientId: (process.env.GITHUB_CLIENT_ID ?? '').trim(),
+  clientSecret: (process.env.GITHUB_CLIENT_SECRET ?? '').trim(),
   // Fallback to the known production URL so auth works even if env var is missing
-  callbackUrl: process.env.AUTH_CALLBACK_URL ?? 'https://kortex-sandy.vercel.app/api/auth/callback',
+  callbackUrl: (process.env.AUTH_CALLBACK_URL ?? 'https://kortex-sandy.vercel.app/api/auth/callback').trim(),
 };
 
 export function isGithubConfigured() {
