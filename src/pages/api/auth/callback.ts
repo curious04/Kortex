@@ -15,6 +15,7 @@ export const GET: APIRoute = async ({ url, cookies }) => {
         client_id: AUTH.clientId,
         client_secret: AUTH.clientSecret,
         code,
+        redirect_uri: AUTH.callbackUrl,
       }),
     });
 
