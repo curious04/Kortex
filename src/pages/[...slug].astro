@@ -1,0 +1,54 @@
+---
+import { getCollection, render } from "astro:content";
+import Layout from "../layouts/Layout.astro";
+
+export async function getStaticPaths() {
+  const notes = await getCollection("notes", ({ data }) => data.public !== false);
+  return notes.map((note) => ({
+    params: { slug: note.id },
+    props: { note },
+  }));
+}
+
+const { note } = Astro.props;
+const { Content } = await render(note);
+const base = import.meta.env.BASE_URL;
+
+const date = note.data.updated ?? note.data.created;
+---
+
+<Layout title={note.data.title} description={note.data.title}>
+  <article class="article">
+    <a class="back" href={base}>← Back</a>
+    <h1>{note.data.title}</h1>
+    <div class="meta">
+      <span class="type">{note.data.type}</span>
+      {date ? <span class="date">{date.toISOString().slice(0, 10)}</span> : null}
+      {note.data.tags.map((t) => <span class="tag">{t}</span>)}
+    </div>
+
+    {
+      note.data.url ? (
+        <a class="linkout" href={note.data.url} target="_blank" rel="noopener">
+          Open link ↗
+        </a>
+      ) : null
+    }
+    {
+      note.data.attachment ? (
+        <a
+          class="linkout"
+          href={note.data.attachment}
+          target="_blank"
+          rel="noopener"
+        >
+          Open attachment ↗
+        </a>
+      ) : null
+    }
+
+    <div class="prose">
+      <Content />
+    </div>
+  </article>
+</Layout>

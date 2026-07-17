@@ -1,0 +1,110 @@
+---
+import "../styles/global.css";
+import { SITE, isGithubConfigured, newEntryUrl, repoUrl } from "../config";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+const { title, description } = Astro.props;
+const pageTitle = title ? `${title} · ${SITE.title}` : `${SITE.title} — ${SITE.tagline}`;
+const base = import.meta.env.BASE_URL;
+const configured = isGithubConfigured();
+---
+
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description ?? SITE.description} />
+    <meta name="theme-color" content="#4f46e5" />
+    <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
+    <title>{pageTitle}</title>
+    <script is:inline>
+      // Apply saved theme before paint to avoid a flash.
+      (function () {
+        const saved = localStorage.getItem("kortex-theme");
+        const theme =
+          saved ||
+          (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href={base}>
+          <img class="mark" src={`${base}favicon.svg`} alt="" />
+          <span>{SITE.title} <span class="tag">/ {SITE.tagline}</span></span>
+        </a>
+        <div class="header-spacer"></div>
+        {
+          configured ? (
+            <a
+              class="btn ghost"
+              href={repoUrl()}
+              target="_blank"
+              rel="noopener"
+              title="Suggest an addition (opens a Pull Request)"
+            >
+              Suggest
+            </a>
+          ) : null
+        }
+        {
+          configured ? (
+            <a class="btn" href={newEntryUrl()} target="_blank" rel="noopener">
+              + Add
+            </a>
+          ) : (
+            <a class="btn" href={`${base}#add`}>+ Add</a>
+          )
+        }
+        <button
+          class="icon-btn"
+          id="theme-toggle"
+          title="Toggle light / dark"
+          aria-label="Toggle theme"
+        >
+          <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></svg>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <div class="wrap">
+        <slot />
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        Kortex — your knowledge, versioned and yours forever.
+      </div>
+    </footer>
+
+    <script is:inline>
+      const btn = document.getElementById("theme-toggle");
+      const icon = document.getElementById("theme-icon");
+      const root = document.documentElement;
+      const MOON =
+        '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+      const SUN =
+        '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>';
+      function sync() {
+        icon.innerHTML =
+          root.getAttribute("data-theme") === "dark" ? SUN : MOON;
+      }
+      sync();
+      btn?.addEventListener("click", () => {
+        const next =
+          root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+        root.setAttribute("data-theme", next);
+        localStorage.setItem("kortex-theme", next);
+        sync();
+      });
+    </script>
+  </body>
+</html>
