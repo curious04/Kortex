@@ -2,7 +2,7 @@ const COOKIE_NAME = "kortex_session";
 const COOKIE_OPTS = {
   path: "/",
   httpOnly: true,
-  secure: true,
+  secure: process.env.NODE_ENV === "production",
   sameSite: "lax",
   maxAge: 60 * 60 * 24 * 30
   // 30 days

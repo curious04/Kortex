@@ -9,9 +9,9 @@ const SITE = {
   }
 };
 const AUTH = {
-  clientId: "",
-  clientSecret: "",
-  callbackUrl: "http://localhost:4321/api/auth/callback"
+  clientId: process.env.GITHUB_CLIENT_ID ?? "",
+  clientSecret: process.env.GITHUB_CLIENT_SECRET ?? "",
+  callbackUrl: process.env.AUTH_CALLBACK_URL ?? "http://localhost:4321/api/auth/callback"
 };
 function isOwner(username) {
   return username.toLowerCase() === SITE.github.owner.toLowerCase();

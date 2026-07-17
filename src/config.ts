@@ -10,11 +10,11 @@ export const SITE = {
   },
 };
 
-/** GitHub OAuth App settings — set these in your .env file */
+/** GitHub OAuth App settings — set these in your Vercel environment variables */
 export const AUTH = {
-  clientId: import.meta.env.GITHUB_CLIENT_ID ?? '',
-  clientSecret: import.meta.env.GITHUB_CLIENT_SECRET ?? '',
-  callbackUrl: import.meta.env.AUTH_CALLBACK_URL ?? 'http://localhost:4321/api/auth/callback',
+  clientId: process.env.GITHUB_CLIENT_ID ?? '',
+  clientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
+  callbackUrl: process.env.AUTH_CALLBACK_URL ?? 'http://localhost:4321/api/auth/callback',
 };
 
 export function isGithubConfigured() {

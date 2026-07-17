@@ -1,4 +1,4 @@
-import { A as AUTH } from '../../../chunks/config_D_BjX1gx.mjs';
+import { A as AUTH } from '../../../chunks/config_Be36SAIC.mjs';
 export { renderers } from '../../../renderers.mjs';
 
 const GET = async () => {

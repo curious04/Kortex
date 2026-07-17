@@ -1,4 +1,4 @@
-import { S as SITE } from './config_D_BjX1gx.mjs';
+import { S as SITE } from './config_Be36SAIC.mjs';
 
 const API = "https://api.github.com";
 function headers(token) {
