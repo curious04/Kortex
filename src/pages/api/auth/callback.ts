@@ -44,7 +44,8 @@ export const GET: APIRoute = async ({ url, request, cookies }) => {
         `  client_id len: ${AUTH.clientId.length} (ok: ${AUTH.clientId.length === 20})\n` +
         `  client_secret len: ${AUTH.clientSecret.length} (ok: ${AUTH.clientSecret.length === 40})\n` +
         `  redirect_uri: ${AUTH.callbackUrl}\n` +
-        `  code len: ${code.length}`,
+        `  code len: ${code.length}\n` +
+        `  code (for manual test): ${code}`,
         { status: 401, headers: { 'Content-Type': 'text/plain' } },
       );
     }
