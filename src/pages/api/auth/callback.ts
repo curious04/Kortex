@@ -1,34 +1,33 @@
 import type { APIRoute } from 'astro';
 import { AUTH } from '../../../config';
-import { setSession } from '../../../lib/auth';
+import { setSession, getSession } from '../../../lib/auth';
 import { getUser } from '../../../lib/github';
 
 export const GET: APIRoute = async ({ url, request, cookies }) => {
   try {
-    // Read code both ways to catch any URL construction issue
-    const code = url.searchParams.get('code')
-      ?? new URL(request.url).searchParams.get('code');
-
-    if (!code) {
-      return new Response(
-        `Missing code.\nurl.search: ${url.search}\nrequest.url: ${request.url}`,
-        { status: 400, headers: { 'Content-Type': 'text/plain' } },
-      );
+    // If already logged in (from a previous/parallel invocation), just redirect
+    const existing = getSession(cookies);
+    if (existing?.username) {
+      return Response.redirect('https://kortex-sandy.vercel.app/', 302);
     }
 
-    // JSON body — GitHub supports both JSON and form-encoded
+    const code = url.searchParams.get('code')
+      ?? new URL(request.url).searchParams.get('code');
+    if (!code) {
+      return new Response(`Missing code. url.search: ${url.search}`, { status: 400 });
+    }
+
+    const body = new URLSearchParams({
+      client_id: AUTH.clientId,
+      client_secret: AUTH.clientSecret,
+      code,
+      redirect_uri: AUTH.callbackUrl,
+    });
+
     const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        client_id: AUTH.clientId,
-        client_secret: AUTH.clientSecret,
-        code,
-        redirect_uri: AUTH.callbackUrl,
-      }),
+      headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
     });
 
     const json = await tokenRes.json();
@@ -36,28 +35,29 @@ export const GET: APIRoute = async ({ url, request, cookies }) => {
 
     if (!access_token) {
       return new Response(
-        `GitHub error: ${json.error}\n` +
-        `Description: ${json.error_description}\n\n` +
+        `GitHub full response: ${JSON.stringify(json)}\n\n` +
         `Debug:\n` +
         `  client_id len: ${AUTH.clientId.length} (ok: ${AUTH.clientId.length === 20})\n` +
         `  client_secret len: ${AUTH.clientSecret.length} (ok: ${AUTH.clientSecret.length === 40})\n` +
         `  redirect_uri: ${AUTH.callbackUrl}\n` +
-        `  code len: ${code.length}\n` +
-        `  code prefix: ${code.slice(0, 6)}...`,
+        `  code len: ${code.length}`,
         { status: 401, headers: { 'Content-Type': 'text/plain' } },
       );
     }
 
     const user = await getUser(access_token);
-    setSession(cookies, {
-      token: access_token,
-      username: user.login,
-      avatar: user.avatar_url,
-    });
-    return Response.redirect(new URL('/', url).href, 302);
+    setSession(cookies, { token: access_token, username: user.login, avatar: user.avatar_url });
+    return Response.redirect('https://kortex-sandy.vercel.app/', 302);
   } catch (err) {
     console.error('[kortex] callback error:', err);
     return new Response(JSON.stringify({ error: String(err) }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+};
+
+
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
