@@ -56,10 +56,3 @@ export const GET: APIRoute = async ({ url, request, cookies }) => {
     });
   }
 };
-
-
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-};
