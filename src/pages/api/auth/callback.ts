@@ -28,18 +28,8 @@ export const GET: APIRoute = async ({ url, cookies }) => {
     const json = await tokenRes.json();
     const access_token = json.access_token;
     if (!access_token) {
-      // Show diagnostic info directly in the browser (client_id is public, code expires in 10 min)
       return new Response(
-        `GitHub error: ${json.error}\n` +
-        `Description: ${json.error_description}\n\n` +
-        `Diagnostics:\n` +
-        `  client_id (first 8): ${AUTH.clientId.slice(0, 8)}...\n` +
-        `  client_id length: ${AUTH.clientId.length}\n` +
-        `  callback URL: ${AUTH.callbackUrl}\n` +
-        `  code length: ${code.length}\n` +
-        `  code prefix: ${code.slice(0, 4)}...\n\n` +
-        `Compare the client_id prefix above with the Client ID shown at\n` +
-        `https://github.com/settings/applications/3734695`,
+        `GitHub error: ${json.error}\nDescription: ${json.error_description}`,
         { status: 401, headers: { 'Content-Type': 'text/plain' } },
       );
     }
