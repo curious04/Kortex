@@ -28,10 +28,10 @@ export const GET: APIRoute = async ({ url, cookies }) => {
     const json = await tokenRes.json();
     const access_token = json.access_token;
     if (!access_token) {
-      return new Response(
-        `GitHub error: ${json.error}\nDescription: ${json.error_description}`,
-        { status: 401, headers: { 'Content-Type': 'text/plain' } },
-      );
+      return new Response(`Auth failed: ${json.error ?? 'unknown error'}`, {
+        status: 401,
+        headers: { 'Content-Type': 'text/plain' },
+      });
     }
 
     const user = await getUser(access_token);
