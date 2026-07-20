@@ -27,6 +27,7 @@ export const GET: APIRoute = async ({ url, request, cookies }) => {
         client_id: AUTH.clientId,
         client_secret: AUTH.clientSecret,
         code,
+        redirect_uri: AUTH.callbackUrl,
       }),
     });
 
@@ -34,16 +35,15 @@ export const GET: APIRoute = async ({ url, request, cookies }) => {
     const access_token = json.access_token;
 
     if (!access_token) {
-      // Full diagnostics visible in browser (code expires in ~10 min, safe to show prefix)
       return new Response(
         `GitHub error: ${json.error}\n` +
         `Description: ${json.error_description}\n\n` +
         `Debug:\n` +
-        `  tokenRes.status: ${tokenRes.status}\n` +
-        `  client_id prefix: ${AUTH.clientId.slice(0, 8)}... (len ${AUTH.clientId.length})\n` +
-        `  code prefix: ${code.slice(0, 6)}... (len ${code.length})\n` +
-        `  request.url: ${request.url.slice(0, 150)}\n` +
-        `  url.toString: ${url.toString().slice(0, 150)}`,
+        `  client_id len: ${AUTH.clientId.length} (ok: ${AUTH.clientId.length === 20})\n` +
+        `  client_secret len: ${AUTH.clientSecret.length} (ok: ${AUTH.clientSecret.length === 40})\n` +
+        `  redirect_uri: ${AUTH.callbackUrl}\n` +
+        `  code len: ${code.length}\n` +
+        `  code prefix: ${code.slice(0, 6)}...`,
         { status: 401, headers: { 'Content-Type': 'text/plain' } },
       );
     }

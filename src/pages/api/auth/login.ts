@@ -11,6 +11,7 @@ export const GET: APIRoute = async () => {
     }
     const params = new URLSearchParams({
       client_id: AUTH.clientId,
+      redirect_uri: AUTH.callbackUrl,
       scope: 'repo',
     });
     return Response.redirect(
