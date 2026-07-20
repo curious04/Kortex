@@ -26,7 +26,11 @@ export const GET: APIRoute = async ({ url, request, cookies }) => {
 
     const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Kortex-App/1.0',
+      },
       body: body.toString(),
     });
 
