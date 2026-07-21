@@ -44,7 +44,7 @@ export const GET: APIRoute = async ({ url, request, cookies }) => {
   try {
     const existing = getSession(cookies);
     if (existing?.username) {
-      return Response.redirect('https://kortex-sandy.vercel.app/', 302);
+      return new Response(null, { status: 302, headers: { Location: 'https://kortex-sandy.vercel.app/' } });
     }
 
     const code = url.searchParams.get('code')
@@ -73,7 +73,10 @@ export const GET: APIRoute = async ({ url, request, cookies }) => {
     }
 
     setSession(cookies, result);
-    return Response.redirect('https://kortex-sandy.vercel.app/', 302);
+    // Use a plain Response (not Response.redirect) — Response.redirect() returns
+    // a response with immutable headers, which crashes when Astro's adapter
+    // tries to append the Set-Cookie header for the session cookie.
+    return new Response(null, { status: 302, headers: { Location: 'https://kortex-sandy.vercel.app/' } });
   } catch (err) {
     console.error('[kortex] callback error:', err);
     return new Response(JSON.stringify({ error: String(err) }), {
