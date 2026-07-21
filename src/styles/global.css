@@ -696,6 +696,52 @@ a:hover { color: var(--accent-light); }
   box-shadow: 0 0 16px var(--accent-glow);
 }
 
+/* ---------- wiki-links + backlinks ---------- */
+.prose a.wikilink {
+  color: var(--accent-light);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--border-hover);
+}
+.prose a.wikilink:hover {
+  border-bottom-color: var(--accent-light);
+}
+.backlinks {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.backlinks h2 {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  margin: 0 0 12px;
+}
+.backlinks ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.backlinks li a {
+  display: inline-block;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  transition: all 0.2s ease;
+}
+.backlinks li a:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
+}
+
 /* ---------- modal ---------- */
 .modal-backdrop {
   position: fixed;

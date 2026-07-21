@@ -3,18 +3,27 @@ export const prerender = true;
 
 import { getCollection, render } from "astro:content";
 import Layout from "../layouts/Layout.astro";
+import { WIKILINK_RE, wikilinkSlug } from "../lib/wikilinks.mjs";
 
 export async function getStaticPaths() {
   const notes = await getCollection("notes", ({ data }) => data.public !== false);
   return notes.map((note) => ({
     params: { slug: note.id },
-    props: { note },
+    props: { note, allNotes: notes },
   }));
 }
 
-const { note } = Astro.props;
+const { note, allNotes } = Astro.props;
 const { Content } = await render(note);
 const date = note.data.updated ?? note.data.created;
+
+// ---------- Backlinks: which other notes reference this one via [[Title]] ----------
+const targetSlug = wikilinkSlug(note.data.title);
+const backlinks = allNotes.filter((n) => {
+  if (n.id === note.id) return false;
+  const matches = [...(n.body || "").matchAll(WIKILINK_RE)];
+  return matches.some((m) => wikilinkSlug(m[1].trim()) === targetSlug);
+});
 ---
 
 <Layout title={note.data.title}>
@@ -42,6 +51,18 @@ const date = note.data.updated ?? note.data.created;
       <div class="prose animate-in delay-2">
         <Content />
       </div>
+
+      {backlinks.length > 0 && (
+        <div class="backlinks animate-in delay-3">
+          <h2>Linked mentions</h2>
+          <ul>
+            {backlinks.map((b) => (
+              <li><a href={`/${b.id}/`}>{b.data.title}</a></li>
+            ))}
+          </ul>
+        </div>
+      )}
     </article>
   </div>
 </Layout>
+
