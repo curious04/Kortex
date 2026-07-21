@@ -22,6 +22,15 @@ export function isGithubConfigured() {
   return Boolean(SITE.github.owner);
 }
 
+/** Groq API (free tier) — used for optional AI tag/type suggestions */
+export const AI = {
+  groqApiKey: (process.env.GROQ_API_KEY ?? '').replace(/\s/g, ''),
+};
+
+export function isAiConfigured() {
+  return Boolean(AI.groqApiKey);
+}
+
 export function isOwner(username: string) {
   return username.toLowerCase() === SITE.github.owner.toLowerCase();
 }

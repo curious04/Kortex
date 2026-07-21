@@ -77,6 +77,9 @@ const ghOwner = SITE.github.owner;
 
           <label for="add-tags">Tags (comma-separated)</label>
           <input id="add-tags" name="tags" type="text" placeholder="ai, productivity, idea" />
+          <button type="button" class="btn sm" id="btn-suggest-tags" style="align-self:flex-start;margin-top:6px;">
+            ✨ Suggest tags &amp; type
+          </button>
 
           <label for="add-content">Content</label>
           <textarea id="add-content" name="content" placeholder="Write anything — markdown supported..."></textarea>
@@ -217,6 +220,37 @@ const ghOwner = SITE.github.owner;
           toast('Link preview loaded', 'success');
         } catch (err) {
           // Non-fatal — user can still fill in the form manually
+        }
+      });
+
+      // AI-suggested tags & type (via Groq, optional)
+      const btnSuggest = document.getElementById('btn-suggest-tags');
+      const tagsInput = document.getElementById('add-tags');
+      btnSuggest?.addEventListener('click', async () => {
+        const title = titleInput.value.trim();
+        const content = contentInput.value.trim();
+        if (!title && !content) {
+          toast('Write a title or some content first', 'info');
+          return;
+        }
+        btnSuggest.disabled = true;
+        btnSuggest.textContent = 'Thinking...';
+        try {
+          const res = await fetch('/api/content/suggest-tags', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, content }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Suggestion failed');
+          if (data.tags?.length) tagsInput.value = data.tags.join(', ');
+          if (data.type) typeSelect.value = data.type;
+          toast('Suggested tags applied', 'success');
+        } catch (err) {
+          toast(err.message || 'Could not suggest tags', 'error');
+        } finally {
+          btnSuggest.disabled = false;
+          btnSuggest.textContent = '✨ Suggest tags & type';
         }
       });
 

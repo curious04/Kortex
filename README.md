@@ -7,6 +7,7 @@ place. Dark, minimal, fast. Powered by GitHub as the database.
 - **Others** can suggest additions — it creates a Pull Request you approve from the UI.
 - **Files & images** upload directly through the UI — small ones go to the repo, large ones to GitHub Releases (free).
 - **Auto-deploys** to Vercel on every change. 100% free.
+- **Installable PWA** with Share-to-Kortex from your phone, `Cmd/Ctrl+K` quick-add, real fuzzy full-text search, `[[wiki-links]]` + backlinks, a knowledge graph view, a Today view with routine streaks, and optional AI tag suggestions.
 
 ---
 
@@ -50,6 +51,7 @@ Open http://localhost:4321
    - `GITHUB_CLIENT_SECRET`
    - `AUTH_CALLBACK_URL` = `https://your-app.vercel.app/api/auth/callback`
    - `SITE_URL` = `https://your-app.vercel.app`
+   - `GROQ_API_KEY` (optional) — enables the "✨ Suggest tags & type" button in the Add modal. Get a free key at https://console.groq.com/keys. Without it, that button just shows a friendly error and everything else still works.
 4. Deploy. Done.
 5. Update your GitHub OAuth App's callback URL to match Vercel.
 
@@ -68,6 +70,22 @@ You see it in the **PRs** panel and can merge or close it with one click.
 ### File uploads
 - **Images < 1 MB**: committed directly to `content/assets/` in the repo.
 - **Large files (PDFs, etc.)**: uploaded to a GitHub Release (free, up to 2 GB each, no LFS needed).
+
+### Mobile & quick capture
+- Installable as a PWA ("Add to Home Screen"). Android's Share button can send any page/text directly into Kortex via `/share`.
+- `Cmd/Ctrl+K` opens the Add modal from anywhere.
+
+### Search & connections
+- The search box does an instant client-side filter of visible cards, *and* queries a Pagefind full-text index (built at deploy time) covering the complete body of every note — shown as a live dropdown.
+- Write `[[Note Title]]` inside any note's content to link to another note. The target note automatically shows a "Linked mentions" section.
+- `/graph` visualizes all notes and their `[[wiki-link]]` connections as an interactive force-directed graph.
+
+### Today view & streaks
+- `/today` lists every `task`/`routine` note with its checklist items.
+- Routines get a "Mark done today" button; streak history is stored in `content/streaks.json` (committed via the GitHub API) and read live from GitHub's raw CDN, so it updates without waiting for a redeploy.
+
+### AI tag suggestions (optional)
+- If `GROQ_API_KEY` is set, the Add modal shows a "✨ Suggest tags & type" button that calls Groq's free-tier API to suggest tags and a content type from your title/content.
 
 ## Cost
 
