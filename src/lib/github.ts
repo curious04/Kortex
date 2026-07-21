@@ -70,6 +70,30 @@ export async function createFile(
   return res.json();
 }
 
+/** Delete a file from the repo */
+export async function deleteFile(token: string, path: string, message: string, branch?: string) {
+  const { owner, repo } = SITE.github;
+  const b = branch ?? SITE.github.branch;
+
+  const existing = await fetch(`${API}/repos/${owner}/${repo}/contents/${path}?ref=${b}`, {
+    headers: headers(token),
+  });
+  if (!existing.ok) throw new Error('File not found');
+  const data = await existing.json();
+
+  const res = await fetch(`${API}/repos/${owner}/${repo}/contents/${path}`, {
+    method: 'DELETE',
+    headers: headers(token),
+    body: JSON.stringify({ message, sha: data.sha, branch: b }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Delete failed: ${res.status} — ${err}`);
+  }
+  return res.json();
+}
+
 /** Upload a binary file (image) to the repo */
 export async function uploadFile(
   token: string,

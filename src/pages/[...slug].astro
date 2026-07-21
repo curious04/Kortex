@@ -16,6 +16,15 @@ export async function getStaticPaths() {
 const { note, allNotes } = Astro.props;
 const { Content } = await render(note);
 const date = note.data.updated ?? note.data.created;
+const rawContent = (note.body || "").replace(/^---[\s\S]*?---\s*/, "");
+const editableNote = {
+  id: note.id,
+  title: note.data.title,
+  type: note.data.type,
+  tags: note.data.tags.join(", "),
+  url: note.data.url || "",
+  content: rawContent,
+};
 
 // ---------- Backlinks: which other notes reference this one via [[Title]] ----------
 const backlinkCandidates = allNotes.map((n) => ({ id: n.id, slug: wikilinkSlug(n.data.title) }));
@@ -29,7 +38,13 @@ const backlinks = allNotes.filter((n) => {
 <Layout title={note.data.title}>
   <div class="wrap">
     <article class="article">
-      <a class="back" href="/">&larr; Back</a>
+      <div class="article-topbar">
+        <a class="back" href="/">&larr; Back</a>
+        <div class="note-actions" id="note-actions" hidden>
+          <button type="button" class="btn sm" id="btn-edit-note">✏️ Edit</button>
+          <button type="button" class="btn sm danger" id="btn-delete-note">🗑 Delete</button>
+        </div>
+      </div>
       <h1 class="animate-in">{note.data.title}</h1>
       <div class="meta animate-in delay-1">
         <span class="type">{note.data.type}</span>
@@ -65,4 +80,30 @@ const backlinks = allNotes.filter((n) => {
     </article>
   </div>
 </Layout>
+
+<script is:inline define:vars={{ editableNote }}>
+  function showNoteActionsIfOwner(isOwner) {
+    const actions = document.getElementById('note-actions');
+    if (actions && isOwner) actions.hidden = false;
+  }
+
+  if (typeof window.KORTEX_IS_OWNER !== 'undefined') showNoteActionsIfOwner(window.KORTEX_IS_OWNER);
+  document.addEventListener('kortex:auth', (e) => showNoteActionsIfOwner(e.detail.isOwner));
+
+  document.getElementById('btn-edit-note')?.addEventListener('click', () => {
+    window.openEditModal?.(editableNote);
+  });
+
+  document.getElementById('btn-delete-note')?.addEventListener('click', async () => {
+    if (!confirm(`Delete "${editableNote.title}"? This can't be undone.`)) return;
+    try {
+      const res = await fetch(`/api/content/${editableNote.id}`, { method: 'DELETE' });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Delete failed');
+      window.location.href = '/';
+    } catch (err) {
+      alert(err.message || 'Delete failed');
+    }
+  });
+</script>
 

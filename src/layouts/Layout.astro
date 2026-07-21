@@ -57,8 +57,9 @@ const ghOwner = SITE.github.owner;
     <!-- Add Content Modal -->
     <div class="modal-backdrop" id="modal-add">
       <div class="modal">
-        <h2>Add to your brain</h2>
+        <h2 id="add-modal-title">Add to your brain</h2>
         <form id="form-add">
+          <input type="hidden" id="add-id" name="id" value="" />
           <label for="add-title">Title</label>
           <div class="input-with-mic">
             <input id="add-title" name="title" type="text" placeholder="What's on your mind?" required />
@@ -101,7 +102,7 @@ const ghOwner = SITE.github.owner;
 
           <div class="actions">
             <button type="button" class="btn" id="btn-cancel">Cancel</button>
-            <button type="submit" class="btn primary">Publish</button>
+            <button type="submit" class="btn primary" id="add-submit-btn">Publish</button>
           </div>
         </form>
       </div>
@@ -129,21 +130,25 @@ const ghOwner = SITE.github.owner;
           const res = await fetch('/api/auth/me');
           const data = await res.json();
           if (data.authenticated) {
-            const isOwner = data.username.toLowerCase() === ghOwner.toLowerCase();
+            const isOwner = data.isOwner;
             authArea.innerHTML = [
               isOwner ? '<button class="btn sm" id="btn-pulls">PRs</button>' : '',
               '<button class="btn primary" id="btn-add">+ Add</button>',
               `<img class="avatar" src="${data.avatar}" alt="${data.username}" title="${data.username}" />`,
               '<a class="btn sm" href="/api/auth/logout">Sign out</a>',
             ].join('');
+            window.KORTEX_IS_OWNER = isOwner;
           } else {
             authArea.innerHTML = '<a class="btn" href="/api/auth/login">Sign in with GitHub</a>';
+            window.KORTEX_IS_OWNER = false;
           }
         } catch (e) {
           authArea.innerHTML = '<a class="btn" href="/api/auth/login">Sign in</a>';
+          window.KORTEX_IS_OWNER = false;
         }
         // Wire up header buttons now that they exist in the DOM
         initButtons();
+        document.dispatchEvent(new CustomEvent('kortex:auth', { detail: { isOwner: window.KORTEX_IS_OWNER } }));
       }
 
       // ========== Toast system ==========
@@ -167,10 +172,38 @@ const ghOwner = SITE.github.owner;
       const fileInput = document.getElementById('file-input');
       let uploadedFileUrl = null;
 
-      btnAdd?.addEventListener('click', () => modal.classList.add('open'));
-      btnCancel?.addEventListener('click', () => modal.classList.remove('open'));
+      function resetAddModal() {
+        document.getElementById('add-id').value = '';
+        document.getElementById('add-modal-title').textContent = 'Add to your brain';
+        document.getElementById('add-submit-btn').textContent = 'Publish';
+      }
+
+      window.openEditModal = function (note) {
+        resetAddModal();
+        document.getElementById('add-id').value = note.id;
+        document.getElementById('add-title').value = note.title || '';
+        document.getElementById('add-type').value = note.type || 'note';
+        document.getElementById('add-url').value = note.url || '';
+        document.getElementById('add-tags').value = note.tags || '';
+        document.getElementById('add-content').value = note.content || '';
+        document.getElementById('add-modal-title').textContent = 'Edit note';
+        document.getElementById('add-submit-btn').textContent = 'Save changes';
+        modal.classList.add('open');
+      };
+
+      btnAdd?.addEventListener('click', () => {
+        resetAddModal();
+        modal.classList.add('open');
+      });
+      btnCancel?.addEventListener('click', () => {
+        modal.classList.remove('open');
+        resetAddModal();
+      });
       modal?.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.remove('open');
+        if (e.target === modal) {
+          modal.classList.remove('open');
+          resetAddModal();
+        }
       });
 
       // File upload
@@ -427,14 +460,18 @@ const ghOwner = SITE.github.owner;
       form?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const data = Object.fromEntries(new FormData(form));
+        const editId = data.id;
         if (uploadedFileUrl) {
           data.content = (data.content || '') + `\n\n[Attached file](${uploadedFileUrl})`;
         }
 
+        const endpoint = editId ? `/api/content/${editId}` : '/api/content/create';
+        const method = editId ? 'PUT' : 'POST';
+
         try {
-          toast('Saving...', 'info');
-          const res = await fetch('/api/content/create', {
-            method: 'POST',
+          toast(editId ? 'Saving changes...' : 'Saving...', 'info');
+          const res = await fetch(endpoint, {
+            method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
           });
@@ -443,12 +480,15 @@ const ghOwner = SITE.github.owner;
           if (result.success) {
             modal.classList.remove('open');
             form.reset();
+            resetAddModal();
             uploadedFileUrl = null;
             fileDrop.textContent = 'Drop a file here or click to upload';
             relatedBox.hidden = true;
             relatedBox.innerHTML = '';
 
-            if (result.action === 'committed') {
+            if (editId) {
+              toast('Note updated! Redeploying...', 'success');
+            } else if (result.action === 'committed') {
               toast('Published! Redeploying...', 'success');
             } else if (result.action === 'pr_created') {
               toast('Suggestion submitted as a Pull Request!', 'success');

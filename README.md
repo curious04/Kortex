@@ -3,7 +3,8 @@
 Your personal knowledge hub — notes, links, ideas, tasks and files, all in one
 place. Dark, minimal, fast. Powered by GitHub as the database.
 
-- **You** add content directly from the UI — it commits to GitHub automatically.
+- **You** add content directly from the UI — it commits to GitHub automatically. Edit or delete any note from its page too.
+- **Multiple owners** can be trusted with direct edit/delete access (no PR needed) — just list their GitHub usernames.
 - **Others** can suggest additions — it creates a Pull Request you approve from the UI.
 - **Files & images** upload directly through the UI — small ones go to the repo, large ones to GitHub Releases (free).
 - **Auto-deploys** to Vercel on every change. 100% free.
@@ -51,6 +52,7 @@ Open http://localhost:4321
    - `GITHUB_CLIENT_SECRET`
    - `AUTH_CALLBACK_URL` = `https://your-app.vercel.app/api/auth/callback`
    - `SITE_URL` = `https://your-app.vercel.app`
+   - `KORTEX_OWNERS` (optional) — comma-separated GitHub usernames allowed to edit/delete content directly, no PR needed. Defaults to just the repo owner. Example: `KORTEX_OWNERS=alice,bob`
    - `GROQ_API_KEY` (optional) — enables the "✨ Suggest tags & type" button in the Add modal. Get a free key at https://console.groq.com/keys. Without it, that button just shows a friendly error and everything else still works.
 4. Deploy. Done.
 5. Update your GitHub OAuth App's callback URL to match Vercel.
@@ -61,6 +63,12 @@ Open http://localhost:4321
 Click **+ Add** → fill the form → hit Publish.  
 Behind the scenes: the API commits a markdown file to your repo via GitHub's API.
 Vercel auto-redeploys. You get a toast notification when it's live.
+
+### Editing & deleting notes (owners)
+Open any note → click **✏️ Edit** to open the same modal pre-filled, or **🗑 Delete** to remove it (with a confirmation prompt). Both commit straight to GitHub, just like adding content — no PR needed for owners. Only usernames listed in `KORTEX_OWNERS` (or the repo owner, by default) see these buttons.
+
+### Multiple owners
+By default only the repo owner gets direct edit/delete/commit access. To trust more people with the same access, set `KORTEX_OWNERS` to a comma-separated list of GitHub usernames in your environment variables. Anyone else who signs in can still contribute via Pull Request.
 
 ### Contributing (others)
 Others sign in with GitHub → click **+ Add** → submit.  

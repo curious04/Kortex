@@ -22,6 +22,16 @@ export function isGithubConfigured() {
   return Boolean(SITE.github.owner);
 }
 
+/**
+ * Who can edit/delete content directly (no PR needed). Defaults to just the repo owner.
+ * Add more GitHub usernames via the KORTEX_OWNERS env var, comma-separated, e.g.
+ * KORTEX_OWNERS=alice,bob
+ */
+export const OWNERS: string[] = (process.env.KORTEX_OWNERS ?? SITE.github.owner)
+  .split(',')
+  .map((u) => u.trim().toLowerCase())
+  .filter(Boolean);
+
 /** Groq API (free tier) — used for optional AI tag/type suggestions */
 export const AI = {
   groqApiKey: (process.env.GROQ_API_KEY ?? '').replace(/\s/g, ''),
@@ -32,7 +42,7 @@ export function isAiConfigured() {
 }
 
 export function isOwner(username: string) {
-  return username.toLowerCase() === SITE.github.owner.toLowerCase();
+  return OWNERS.includes(username.toLowerCase());
 }
 
 export function repoUrl() {
