@@ -1,0 +1,68 @@
+---
+export const prerender = true;
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Ask AI" description="Ask questions about your own notes — answered using only what you've saved.">
+  <div class="wrap ask-page">
+    <span class="label">AI · powered by Groq</span>
+    <h1>Ask your brain</h1>
+    <p class="ask-sub">Ask a question — I'll answer using only what's actually in your Kortex, with sources cited.</p>
+
+    <div class="ask-chat" id="ask-chat">
+      <div class="ask-msg assistant">
+        <div class="ask-answer">Hey! Ask me anything about the notes you've saved — e.g. "What have I saved about Astro?" or "Summarize my ideas about side projects."</div>
+      </div>
+    </div>
+
+    <form id="ask-form" class="ask-form">
+      <input id="ask-input" type="text" placeholder="What have I saved about...?" autocomplete="off" required />
+      <button type="submit" class="btn primary">Ask</button>
+    </form>
+  </div>
+
+  <script is:inline>
+    const chat = document.getElementById('ask-chat');
+    const form = document.getElementById('ask-form');
+    const input = document.getElementById('ask-input');
+
+    function escapeHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function addMsg(role, html) {
+      const div = document.createElement('div');
+      div.className = `ask-msg ${role}`;
+      div.innerHTML = html;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+      return div;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const q = input.value.trim();
+      if (!q) return;
+      addMsg('user', `<div class="ask-question">${escapeHtml(q)}</div>`);
+      input.value = '';
+      const pending = addMsg('assistant', '<span class="ask-thinking">Thinking…</span>');
+
+      try {
+        const res = await fetch('/api/ai/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: q }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Ask failed');
+        const sources = data.sources?.length
+          ? `<div class="ask-sources">Sources: ${data.sources.map((s) => `<span>${escapeHtml(s)}</span>`).join('')}</div>`
+          : '';
+        pending.innerHTML = `<div class="ask-answer">${escapeHtml(data.answer).replace(/\n/g, '<br/>')}</div>${sources}`;
+      } catch (err) {
+        pending.innerHTML = `<span class="ask-error">${escapeHtml(err.message || 'Something went wrong')}</span>`;
+      }
+      chat.scrollTop = chat.scrollHeight;
+    });
+  </script>
+</Layout>

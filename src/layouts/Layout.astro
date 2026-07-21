@@ -36,6 +36,7 @@ const ghOwner = SITE.github.owner;
           <span class="sub">second brain</span>
         </a>
         <div class="header-spacer"></div>
+        <a class="btn sm" href="/ask">✨ Ask AI</a>
         <nav class="header-nav" id="auth-area">
           <!-- Populated client-side via /api/auth/me to work with prerendered pages -->
         </nav>
@@ -59,7 +60,10 @@ const ghOwner = SITE.github.owner;
         <h2>Add to your brain</h2>
         <form id="form-add">
           <label for="add-title">Title</label>
-          <input id="add-title" name="title" type="text" placeholder="What's on your mind?" required />
+          <div class="input-with-mic">
+            <input id="add-title" name="title" type="text" placeholder="What's on your mind?" required />
+            <button type="button" class="mic-btn" data-target="add-title" title="Dictate title">🎤</button>
+          </div>
 
           <label for="add-type">Type</label>
           <select id="add-type" name="type">
@@ -80,9 +84,14 @@ const ghOwner = SITE.github.owner;
           <button type="button" class="btn sm" id="btn-suggest-tags" style="align-self:flex-start;margin-top:6px;">
             ✨ Suggest tags &amp; type
           </button>
+          <div class="related-suggest" id="related-suggest" hidden></div>
 
-          <label for="add-content">Content</label>
-          <textarea id="add-content" name="content" placeholder="Write anything — markdown supported..."></textarea>
+          <label for="add-content">Content <span class="hint-inline">— type <code>[[</code> to link a note</span></label>
+          <div class="content-field-wrap">
+            <textarea id="add-content" name="content" placeholder="Write anything — markdown supported... Type [[ to link a note"></textarea>
+            <button type="button" class="mic-btn content-mic" data-target="add-content" title="Dictate content">🎤</button>
+            <div class="wikilink-suggest" id="wikilink-suggest" hidden></div>
+          </div>
 
           <label>Attach file</label>
           <div class="file-drop" id="file-drop">
@@ -223,9 +232,160 @@ const ghOwner = SITE.github.owner;
         }
       });
 
-      // AI-suggested tags & type (via Groq, optional)
+      // ========== Wiki-link autocomplete: type [[ in content to fuzzy-search & click a note title ==========
+      const wikiSuggest = document.getElementById('wikilink-suggest');
+      let allNoteTitles = [];
+      let titlesLoaded = false;
+      let wikiActiveIndex = -1;
+      let wikiMatchStart = -1;
+
+      async function ensureTitlesLoaded() {
+        if (titlesLoaded) return;
+        titlesLoaded = true;
+        try {
+          const res = await fetch('/api/content/titles');
+          allNoteTitles = await res.json();
+        } catch {
+          allNoteTitles = [];
+        }
+      }
+
+      function fuzzyScore(query, text) {
+        query = query.toLowerCase();
+        text = text.toLowerCase();
+        if (!query) return 1;
+        if (text.includes(query)) return 100 - text.indexOf(query);
+        let qi = 0;
+        for (let i = 0; i < text.length && qi < query.length; i++) {
+          if (text[i] === query[qi]) qi++;
+        }
+        return qi === query.length ? 10 : -1;
+      }
+
+      function renderWikiSuggest(query) {
+        const matches = allNoteTitles
+          .map((n) => ({ ...n, score: fuzzyScore(query, n.title) }))
+          .filter((n) => n.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 6);
+
+        if (!matches.length) {
+          wikiSuggest.hidden = true;
+          return;
+        }
+
+        wikiActiveIndex = 0;
+        wikiSuggest.innerHTML = matches
+          .map(
+            (n, i) =>
+              `<div class="wikilink-suggest-item${i === 0 ? ' active' : ''}" data-title="${n.title.replace(/"/g, '&quot;')}">${n.title}</div>`,
+          )
+          .join('');
+        wikiSuggest.hidden = false;
+      }
+
+      function insertWikiLink(title) {
+        const val = contentInput.value;
+        const caret = wikiMatchStart >= 0 ? contentInput.selectionStart : val.length;
+        const start = wikiMatchStart >= 0 ? wikiMatchStart : val.length;
+        const before = val.slice(0, start);
+        const after = val.slice(caret);
+        const sep = wikiMatchStart >= 0 || !before || before.endsWith('\n') || before.endsWith(' ') ? '' : ' ';
+        const insertText = `${sep}[[${title}]]`;
+        contentInput.value = before + insertText + after;
+        const newCaret = before.length + insertText.length;
+        contentInput.focus();
+        contentInput.setSelectionRange(newCaret, newCaret);
+        wikiSuggest.hidden = true;
+        wikiMatchStart = -1;
+      }
+
+      contentInput?.addEventListener('input', async () => {
+        const caret = contentInput.selectionStart;
+        const before = contentInput.value.slice(0, caret);
+        const match = before.match(/\[\[([^[\]]*)$/);
+        if (!match) {
+          wikiSuggest.hidden = true;
+          wikiMatchStart = -1;
+          return;
+        }
+        wikiMatchStart = caret - match[0].length;
+        await ensureTitlesLoaded();
+        renderWikiSuggest(match[1]);
+      });
+
+      contentInput?.addEventListener('keydown', (e) => {
+        if (wikiSuggest.hidden) return;
+        const items = [...wikiSuggest.querySelectorAll('.wikilink-suggest-item')];
+        if (!items.length) return;
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          wikiActiveIndex = (wikiActiveIndex + 1) % items.length;
+          items.forEach((it, i) => it.classList.toggle('active', i === wikiActiveIndex));
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          wikiActiveIndex = (wikiActiveIndex - 1 + items.length) % items.length;
+          items.forEach((it, i) => it.classList.toggle('active', i === wikiActiveIndex));
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          insertWikiLink(items[wikiActiveIndex].dataset.title);
+        } else if (e.key === 'Escape') {
+          wikiSuggest.hidden = true;
+        }
+      });
+
+      wikiSuggest?.addEventListener('mousedown', (e) => {
+        const item = e.target.closest('.wikilink-suggest-item');
+        if (item) {
+          e.preventDefault();
+          insertWikiLink(item.dataset.title);
+        }
+      });
+
+      contentInput?.addEventListener('blur', () => {
+        setTimeout(() => {
+          wikiSuggest.hidden = true;
+        }, 150);
+      });
+
+      // ========== Voice dictation (Web Speech API, free & offline-capable) ==========
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      document.querySelectorAll('.mic-btn').forEach((btn) => {
+        if (!SpeechRec) {
+          btn.style.display = 'none';
+          return;
+        }
+        btn.addEventListener('click', () => {
+          const target = document.getElementById(btn.dataset.target);
+          if (!target) return;
+          const rec = new SpeechRec();
+          rec.lang = 'en-US';
+          rec.interimResults = false;
+          rec.onresult = (e) => {
+            const text = e.results[0][0].transcript;
+            target.value = (target.value ? target.value.trim() + ' ' : '') + text;
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+          };
+          rec.onerror = () => {
+            btn.classList.remove('recording');
+            toast('Voice input failed or was denied', 'error');
+          };
+          rec.onend = () => btn.classList.remove('recording');
+          btn.classList.add('recording');
+          rec.start();
+        });
+      });
+
+      // AI-suggested tags, type & related notes (via Groq, optional)
       const btnSuggest = document.getElementById('btn-suggest-tags');
       const tagsInput = document.getElementById('add-tags');
+      const relatedBox = document.getElementById('related-suggest');
+
+      relatedBox?.addEventListener('click', (e) => {
+        const chip = e.target.closest('.chip');
+        if (chip) insertWikiLink(chip.dataset.title);
+      });
+
       btnSuggest?.addEventListener('click', async () => {
         const title = titleInput.value.trim();
         const content = contentInput.value.trim();
@@ -235,17 +395,27 @@ const ghOwner = SITE.github.owner;
         }
         btnSuggest.disabled = true;
         btnSuggest.textContent = 'Thinking...';
+        relatedBox.hidden = true;
         try {
+          await ensureTitlesLoaded();
           const res = await fetch('/api/content/suggest-tags', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, content }),
+            body: JSON.stringify({ title, content, existingTitles: allNoteTitles.map((n) => n.title) }),
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Suggestion failed');
           if (data.tags?.length) tagsInput.value = data.tags.join(', ');
           if (data.type) typeSelect.value = data.type;
-          toast('Suggested tags applied', 'success');
+          if (data.related?.length) {
+            relatedBox.innerHTML =
+              'Related — click to link: ' +
+              data.related
+                .map((t) => `<button type="button" class="chip" data-title="${t.replace(/"/g, '&quot;')}">${t}</button>`)
+                .join('');
+            relatedBox.hidden = false;
+          }
+          toast('Suggestions applied', 'success');
         } catch (err) {
           toast(err.message || 'Could not suggest tags', 'error');
         } finally {
@@ -275,6 +445,8 @@ const ghOwner = SITE.github.owner;
             form.reset();
             uploadedFileUrl = null;
             fileDrop.textContent = 'Drop a file here or click to upload';
+            relatedBox.hidden = true;
+            relatedBox.innerHTML = '';
 
             if (result.action === 'committed') {
               toast('Published! Redeploying...', 'success');

@@ -17,10 +17,20 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     );
   }
 
-  const { title, content } = await request.json();
+  const { title, content, existingTitles } = await request.json();
   if (!title && !content) {
     return new Response(JSON.stringify({ error: 'title or content is required' }), { status: 400 });
   }
+
+  const titlePool: string[] = Array.isArray(existingTitles)
+    ? existingTitles.filter((t: unknown) => typeof t === 'string').slice(0, 200)
+    : [];
+
+  const relatedInstruction = titlePool.length
+    ? ` Also pick 0-3 titles from this list of the user's EXISTING notes that are genuinely relevant to link to ` +
+      `(only if truly related, otherwise return an empty array — do not force it): ${JSON.stringify(titlePool)}. ` +
+      `Return them verbatim (exact spelling) as "related": ["Existing Title", ...].`
+    : '';
 
   try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -39,8 +49,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
             content:
               'You are a tagging assistant for a personal knowledge base called Kortex. ' +
               'Given a note title and content, respond with ONLY a JSON object: ' +
-              `{"type": one of [${VALID_TYPES.join(', ')}], "tags": ["tag1", "tag2", ...]}. ` +
-              'Use 2-5 short, lowercase, single-word-or-hyphenated tags. No explanation, no markdown.',
+              `{"type": one of [${VALID_TYPES.join(', ')}], "tags": ["tag1", "tag2", ...], "related": []}. ` +
+              'Use 2-5 short, lowercase, single-word-or-hyphenated tags. No explanation, no markdown.' +
+              relatedInstruction,
           },
           { role: 'user', content: `Title: ${title || '(none)'}\n\nContent: ${(content || '').slice(0, 4000)}` },
         ],
@@ -61,7 +72,16 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       ? parsed.tags.filter((t: unknown) => typeof t === 'string').slice(0, 6)
       : [];
 
-    return new Response(JSON.stringify({ type, tags }), {
+    const poolLower = new Map(titlePool.map((t) => [t.toLowerCase(), t]));
+    const related = Array.isArray(parsed.related)
+      ? parsed.related
+          .filter((t: unknown) => typeof t === 'string')
+          .map((t: string) => poolLower.get(t.toLowerCase()))
+          .filter((t: unknown): t is string => Boolean(t))
+          .slice(0, 3)
+      : [];
+
+    return new Response(JSON.stringify({ type, tags, related }), {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (err: any) {

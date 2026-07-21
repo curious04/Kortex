@@ -7,7 +7,7 @@ place. Dark, minimal, fast. Powered by GitHub as the database.
 - **Others** can suggest additions — it creates a Pull Request you approve from the UI.
 - **Files & images** upload directly through the UI — small ones go to the repo, large ones to GitHub Releases (free).
 - **Auto-deploys** to Vercel on every change. 100% free.
-- **Installable PWA** with Share-to-Kortex from your phone, `Cmd/Ctrl+K` quick-add, real fuzzy full-text search, `[[wiki-links]]` + backlinks, a knowledge graph view, a Today view with routine streaks, and optional AI tag suggestions.
+- **Installable PWA** with Share-to-Kortex from your phone, `Cmd/Ctrl+K` quick-add, real fuzzy full-text search, `[[wiki-links]]` (with click-to-link autocomplete) + backlinks, a knowledge graph view, a Today view with routine streaks, voice dictation, and an AI "Ask your brain" chat + tag/related-note suggestions.
 
 ---
 
@@ -84,8 +84,16 @@ You see it in the **PRs** panel and can merge or close it with one click.
 - `/today` lists every `task`/`routine` note with its checklist items.
 - Routines get a "Mark done today" button; streak history is stored in `content/streaks.json` (committed via the GitHub API) and read live from GitHub's raw CDN, so it updates without waiting for a redeploy.
 
-### AI tag suggestions (optional)
-- If `GROQ_API_KEY` is set, the Add modal shows a "✨ Suggest tags & type" button that calls Groq's free-tier API to suggest tags and a content type from your title/content.
+### Linking notes together
+- Type `[[` inside the Content field to open a fuzzy-search dropdown of your existing note titles — arrow keys or a click inserts a real `[[Title]]` link, no need to type the exact title.
+
+### AI features (optional, powered by Groq's free tier)
+- **Suggest tags & type**: in the Add modal, click "✨ Suggest tags & type" to have AI propose tags, a content type, and up to 3 existing notes worth linking to (shown as clickable chips that insert a `[[wiki-link]]`).
+- **Ask your brain** (`/ask`): a chat page that answers questions using only the notes you've actually saved, with sources cited — no vector DB required, just a lightweight keyword-ranked context window sent to Groq.
+- Both require `GROQ_API_KEY`. Without it, they show a friendly error and everything else still works.
+
+### Voice dictation
+- Click the 🎤 button next to the Title or Content fields to dictate instead of typing (uses the browser's built-in Web Speech API — no API key, no cost; Chrome/Edge only).
 
 ## Cost
 
