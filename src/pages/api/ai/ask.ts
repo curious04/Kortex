@@ -1,7 +1,8 @@
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
 import { getSession } from '../../../lib/auth';
-import { isOwner, AI, isAiConfigured } from '../../../config';
+import { AI, isAiConfigured } from '../../../config';
+import { isOwnerAsync } from '../../../lib/owners';
 
 function stripFrontmatter(body?: string) {
   return (body || '').replace(/^---[\s\S]*?---/, '').trim();
@@ -32,7 +33,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   const session = getSession(cookies);
-  const includePrivate = Boolean(session && isOwner(session.username));
+  const includePrivate = Boolean(session && (await isOwnerAsync(session.token, session.username)));
 
   const notes = await getCollection('notes', ({ data }) => includePrivate || data.public !== false);
 

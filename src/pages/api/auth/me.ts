@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getSession } from '../../../lib/auth';
-import { isOwner } from '../../../config';
+import { isOwnerAsync } from '../../../lib/owners';
 
 export const GET: APIRoute = async ({ cookies }) => {
   const session = getSession(cookies);
@@ -14,7 +14,7 @@ export const GET: APIRoute = async ({ cookies }) => {
       authenticated: true,
       username: session.username,
       avatar: session.avatar,
-      isOwner: isOwner(session.username),
+      isOwner: await isOwnerAsync(session.token, session.username),
     }),
     { headers: { 'Content-Type': 'application/json' } },
   );

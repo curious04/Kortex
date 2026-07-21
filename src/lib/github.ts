@@ -17,6 +17,27 @@ export async function getUser(token: string) {
   return res.json();
 }
 
+/** Look up a public GitHub user profile by username (returns null if not found) */
+export async function getGithubUser(token: string, username: string) {
+  const res = await fetch(`${API}/users/${encodeURIComponent(username)}`, { headers: headers(token) });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Failed to look up GitHub user: ${res.status}`);
+  const data = await res.json();
+  return { login: data.login as string, email: (data.email as string | null) ?? null, avatarUrl: data.avatar_url as string };
+}
+
+/** Search for a GitHub user by their public email (only finds emails set as public on the profile) */
+export async function findGithubUserByEmail(token: string, email: string) {
+  const res = await fetch(`${API}/search/users?q=${encodeURIComponent(email)}+in:email`, {
+    headers: headers(token),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const first = data.items?.[0];
+  return first ? { login: first.login as string } : null;
+}
+
+
 /** Read a file's content (or null if it doesn't exist) */
 export async function getFile(token: string, path: string, branch?: string) {
   const { owner, repo } = SITE.github;

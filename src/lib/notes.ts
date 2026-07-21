@@ -1,4 +1,4 @@
-import { isOwner } from '../config';
+import { isOwnerAsync } from './owners';
 import { createFile, createContributionPR, getFile, deleteFile } from './github';
 import type { Session } from './auth';
 
@@ -47,7 +47,7 @@ export async function saveNote(session: Session, input: NoteInput) {
   const markdown = buildNoteMarkdown(input);
   const path = `content/notes/${slugify(input.title)}.md`;
 
-  if (isOwner(session.username)) {
+  if (await isOwnerAsync(session.token, session.username)) {
     await createFile(session.token, path, markdown, `Add: ${input.title}`);
     return { success: true, action: 'committed' as const };
   }
@@ -58,7 +58,7 @@ export async function saveNote(session: Session, input: NoteInput) {
 
 /** Edit an existing note in place (same file path/id) — owners only, commits directly. */
 export async function updateNote(session: Session, id: string, input: NoteInput) {
-  if (!isOwner(session.username)) {
+  if (!(await isOwnerAsync(session.token, session.username))) {
     throw new Error('Only owners can edit notes directly');
   }
   const path = `content/notes/${id}.md`;
@@ -76,7 +76,7 @@ export async function updateNote(session: Session, id: string, input: NoteInput)
 
 /** Delete an existing note — owners only, commits directly. */
 export async function deleteNote(session: Session, id: string) {
-  if (!isOwner(session.username)) {
+  if (!(await isOwnerAsync(session.token, session.username))) {
     throw new Error('Only owners can delete notes directly');
   }
   const path = `content/notes/${id}.md`;

@@ -97,9 +97,14 @@ const backlinks = allNotes.filter((n) => {
   document.getElementById('btn-delete-note')?.addEventListener('click', async () => {
     if (!confirm(`Delete "${editableNote.title}"? This can't be undone.`)) return;
     try {
-      const res = await fetch(`/api/content/${editableNote.id}`, { method: 'DELETE' });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || 'Delete failed');
+      const res = await fetch(`/api/content/${editableNote.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const text = await res.text();
+      let result = {};
+      try { result = text ? JSON.parse(text) : {}; } catch { /* non-JSON response */ }
+      if (!res.ok) throw new Error(result.error || `Delete failed (${res.status})`);
       window.location.href = '/';
     } catch (err) {
       alert(err.message || 'Delete failed');

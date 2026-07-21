@@ -121,6 +121,39 @@ const ghOwner = SITE.github.owner;
       </div>
     </div>
 
+    <!-- Owners Modal -->
+    <div class="modal-backdrop" id="modal-owners">
+      <div class="modal">
+        <h2>Manage owners</h2>
+        <p class="hint-inline" style="margin:-4px 0 14px;">
+          Owners can create, edit, and delete notes directly — no pull request needed.
+        </p>
+        <div id="owners-list">
+          <p style="color:var(--text-tertiary);font-size:0.88rem;">Loading...</p>
+        </div>
+        <form id="form-add-owner" style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
+          <label for="owner-identifier">GitHub username or email</label>
+          <input
+            id="owner-identifier"
+            name="identifier"
+            type="text"
+            placeholder="e.g. octocat or octocat@example.com"
+            required
+          />
+          <p class="hint-inline" style="margin:6px 0 0;">
+            We'll confirm their GitHub account and email them an invite if we can find an address.
+          </p>
+          <div class="actions">
+            <button type="submit" class="btn primary sm" id="btn-add-owner-submit">Add owner</button>
+          </div>
+        </form>
+        <div class="actions">
+          <button type="button" class="btn" id="btn-close-owners">Close</button>
+        </div>
+      </div>
+    </div>
+
+
     <script is:inline define:vars={{ ghOwner }}>
       // ========== Auth (client-side) ==========
       const authArea = document.getElementById('auth-area');
@@ -133,6 +166,7 @@ const ghOwner = SITE.github.owner;
             const isOwner = data.isOwner;
             authArea.innerHTML = [
               isOwner ? '<button class="btn sm" id="btn-pulls">PRs</button>' : '',
+              isOwner ? '<button class="btn sm" id="btn-owners">👥 Owners</button>' : '',
               '<button class="btn primary" id="btn-add">+ Add</button>',
               `<img class="avatar" src="${data.avatar}" alt="${data.username}" title="${data.username}" />`,
               '<a class="btn sm" href="/api/auth/logout">Sign out</a>',
@@ -563,6 +597,111 @@ const ghOwner = SITE.github.owner;
           toast(err.message || 'Action failed', 'error');
         }
       };
+
+      // ========== Owners Modal ==========
+      const modalOwners = document.getElementById('modal-owners');
+      const btnOwners = document.getElementById('btn-owners');
+      const btnCloseOwners = document.getElementById('btn-close-owners');
+      const ownersList = document.getElementById('owners-list');
+      const formAddOwner = document.getElementById('form-add-owner');
+
+      function renderOwnersList(owners) {
+        if (!owners.length) {
+          ownersList.innerHTML = '<p style="color:var(--text-tertiary);font-size:0.88rem;">No owners yet.</p>';
+          return;
+        }
+        ownersList.innerHTML = owners
+          .map(
+            (o) => `
+          <div class="owner-item">
+            <div class="owner-info">
+              <strong>@${o.username}</strong>
+              ${o.email ? `<span class="owner-email">${o.email}</span>` : ''}
+              ${o.isStatic ? '<span class="tag">env</span>' : ''}
+            </div>
+            ${o.isStatic ? '' : `<button type="button" class="btn sm danger" data-remove="${o.username}">Remove</button>`}
+          </div>`,
+          )
+          .join('');
+      }
+
+      async function loadOwnersList() {
+        ownersList.innerHTML = '<p style="color:var(--text-tertiary);font-size:0.88rem;">Loading...</p>';
+        try {
+          const res = await fetch('/api/owners');
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to load owners');
+          renderOwnersList(data.owners);
+        } catch (err) {
+          ownersList.innerHTML = `<p style="color:var(--text-tertiary);">${err.message}</p>`;
+        }
+      }
+
+      btnOwners?.addEventListener('click', () => {
+        modalOwners.classList.add('open');
+        loadOwnersList();
+      });
+      btnCloseOwners?.addEventListener('click', () => modalOwners.classList.remove('open'));
+      modalOwners?.addEventListener('click', (e) => {
+        if (e.target === modalOwners) modalOwners.classList.remove('open');
+      });
+
+      ownersList?.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-remove]');
+        if (!btn) return;
+        const username = btn.dataset.remove;
+        if (!confirm(`Remove @${username} as an owner?`)) return;
+        try {
+          const res = await fetch(`/api/owners/${username}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          const text = await res.text();
+          let result = {};
+          try {
+            result = text ? JSON.parse(text) : {};
+          } catch {
+            /* non-JSON response */
+          }
+          if (!res.ok) throw new Error(result.error || `Remove failed (${res.status})`);
+          toast(`Removed @${username}`, 'success');
+          loadOwnersList();
+        } catch (err) {
+          toast(err.message || 'Remove failed', 'error');
+        }
+      });
+
+      formAddOwner?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const identifier = document.getElementById('owner-identifier').value.trim();
+        if (!identifier) return;
+        const submitBtn = document.getElementById('btn-add-owner-submit');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Adding...';
+        try {
+          const res = await fetch('/api/owners', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier }),
+          });
+          const result = await res.json();
+          if (!res.ok) throw new Error(result.error || 'Failed to add owner');
+          formAddOwner.reset();
+          if (result.emailSent) {
+            toast(`@${result.username} added — invite email sent!`, 'success');
+          } else if (result.email) {
+            toast(`@${result.username} added — email not sent (${result.emailError || 'email not configured'})`, 'info');
+          } else {
+            toast(`@${result.username} added — no public email found to notify them`, 'info');
+          }
+          loadOwnersList();
+        } catch (err) {
+          toast(err.message || 'Failed to add owner', 'error');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Add owner';
+        }
+      });
 
       } // end initButtons
 

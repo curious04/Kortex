@@ -52,7 +52,9 @@ Open http://localhost:4321
    - `GITHUB_CLIENT_SECRET`
    - `AUTH_CALLBACK_URL` = `https://your-app.vercel.app/api/auth/callback`
    - `SITE_URL` = `https://your-app.vercel.app`
-   - `KORTEX_OWNERS` (optional) — comma-separated GitHub usernames allowed to edit/delete content directly, no PR needed. Defaults to just the repo owner. Example: `KORTEX_OWNERS=alice,bob`
+   - `KORTEX_OWNERS` (optional) — comma-separated GitHub usernames allowed to edit/delete content directly, no PR needed. Defaults to just the repo owner. Example: `KORTEX_OWNERS=alice,bob`. You can also add owners later from the UI (see below) without redeploying.
+   - `RESEND_API_KEY` (optional) — enables emailing new owners an invite when you add them from the UI. Free tier at https://resend.com. Without a verified sending domain, Resend's sandbox mode only delivers to the email on your Resend account — verify a domain to email arbitrary people.
+   - `RESEND_FROM` (optional) — the "from" address for owner-invite emails, e.g. `Kortex <notify@yourdomain.com>`. Defaults to Resend's shared sandbox address.
    - `GROQ_API_KEY` (optional) — enables the "✨ Suggest tags & type" button in the Add modal. Get a free key at https://console.groq.com/keys. Without it, that button just shows a friendly error and everything else still works.
 4. Deploy. Done.
 5. Update your GitHub OAuth App's callback URL to match Vercel.
@@ -68,7 +70,7 @@ Vercel auto-redeploys. You get a toast notification when it's live.
 Open any note → click **✏️ Edit** to open the same modal pre-filled, or **🗑 Delete** to remove it (with a confirmation prompt). Both commit straight to GitHub, just like adding content — no PR needed for owners. Only usernames listed in `KORTEX_OWNERS` (or the repo owner, by default) see these buttons.
 
 ### Multiple owners
-By default only the repo owner gets direct edit/delete/commit access. To trust more people with the same access, set `KORTEX_OWNERS` to a comma-separated list of GitHub usernames in your environment variables. Anyone else who signs in can still contribute via Pull Request.
+By default only the repo owner gets direct edit/delete/commit access. Click **👥 Owners** in the header (visible to owners only) to add more people right from the UI — type their GitHub username or an email connected to their GitHub account. This commits an updated `content/owners.json` to your repo (no redeploy needed) and, if `RESEND_API_KEY` is configured, emails them an invite. Anyone else who signs in can still contribute via Pull Request. Owners added this way can be removed from the same panel; owners set via `KORTEX_OWNERS` can only be changed by editing that env var.
 
 ### Contributing (others)
 Others sign in with GitHub → click **+ Add** → submit.  

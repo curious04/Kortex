@@ -1084,6 +1084,28 @@ a:hover { color: var(--accent-light); }
   gap: 6px;
 }
 
+/* ---------- owners panel ---------- */
+.owner-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.owner-item:last-child { border-bottom: none; }
+.owner-item .owner-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.owner-item .owner-email {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--text-tertiary);
+}
+
 /* ---------- footer ---------- */
 .site-footer {
   border-top: 1px solid var(--border);

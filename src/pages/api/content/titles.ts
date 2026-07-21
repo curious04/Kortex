@@ -1,12 +1,12 @@
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
 import { getSession } from '../../../lib/auth';
-import { isOwner } from '../../../config';
+import { isOwnerAsync } from '../../../lib/owners';
 
 /** Lightweight list of note titles, used by the wiki-link autocomplete and AI related-notes suggestions. */
 export const GET: APIRoute = async ({ cookies }) => {
   const session = getSession(cookies);
-  const includePrivate = Boolean(session && isOwner(session.username));
+  const includePrivate = Boolean(session && (await isOwnerAsync(session.token, session.username)));
 
   const notes = await getCollection('notes', ({ data }) => includePrivate || data.public !== false);
   const titles = notes
