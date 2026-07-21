@@ -17,6 +17,20 @@ export async function getUser(token: string) {
   return res.json();
 }
 
+/** Read a file's content (or null if it doesn't exist) */
+export async function getFile(token: string, path: string, branch?: string) {
+  const { owner, repo } = SITE.github;
+  const b = branch ?? SITE.github.branch;
+  const res = await fetch(`${API}/repos/${owner}/${repo}/contents/${path}?ref=${b}`, {
+    headers: headers(token),
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Failed to read file: ${res.status}`);
+  const data = await res.json();
+  const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
+  return { content, sha: data.sha as string };
+}
+
 /** Create or update a file in the repo */
 export async function createFile(
   token: string,

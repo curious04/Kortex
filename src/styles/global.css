@@ -818,6 +818,101 @@ a:hover { color: var(--accent-light); }
   border-radius: var(--radius-xs);
 }
 
+/* ---------- today view ---------- */
+.today-page {
+  padding: 48px 0 80px;
+  max-width: 760px;
+}
+.today-page h1 {
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin: 0 0 8px;
+}
+.today-sub {
+  color: var(--text-tertiary);
+  font-size: 0.9rem;
+  margin: 0 0 28px;
+}
+.today-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.today-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  padding: 18px 20px;
+}
+.today-item-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.today-item-head .type {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-light);
+}
+.today-item-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  flex: 1;
+}
+.today-item-head h3 a { color: var(--text-primary); }
+.today-item-head h3 a:hover { color: var(--accent-light); }
+.streak-btn {
+  font-size: 0.76rem;
+}
+.streak-btn.marked {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+.checklist li.done {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+.checklist .box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border-hover);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  color: var(--accent-light);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.no-items {
+  color: var(--text-tertiary);
+  font-size: 0.84rem;
+  margin: 0;
+}
+
 /* ---------- modal ---------- */
 .modal-backdrop {
   position: fixed;

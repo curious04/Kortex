@@ -1,0 +1,121 @@
+---
+export const prerender = true;
+import { getCollection } from "astro:content";
+import Layout from "../layouts/Layout.astro";
+import { SITE } from "../config";
+
+const notes = await getCollection(
+  "notes",
+  ({ data }) => data.public !== false && (data.type === "task" || data.type === "routine")
+);
+
+function parseChecklist(body?: string) {
+  if (!body) return [];
+  const items: { done: boolean; text: string }[] = [];
+  for (const line of body.split("\n")) {
+    const m = line.match(/^[-*]\s*\[([ xX])\]\s+(.+)$/);
+    if (m) items.push({ done: m[1].toLowerCase() === "x", text: m[2].trim() });
+  }
+  return items;
+}
+
+const entries = notes
+  .map((n) => ({
+    id: n.id,
+    title: n.data.title,
+    type: n.data.type,
+    items: parseChecklist(n.body),
+  }))
+  .sort((a, b) => a.type.localeCompare(b.type));
+
+const streaksRawUrl = `https://raw.githubusercontent.com/${SITE.github.owner}/${SITE.github.repo}/${SITE.github.branch}/content/streaks.json`;
+---
+
+<Layout title="Today">
+  <div class="wrap today-page">
+    <h1 class="animate-in">Today</h1>
+    <p class="today-sub animate-in delay-1">Open tasks and routines across your notes.</p>
+
+    {entries.length === 0 ? (
+      <p class="empty">Nothing here yet — add a task or routine note to see it show up.</p>
+    ) : (
+      <div class="today-list animate-in delay-2" data-streaks-url={streaksRawUrl}>
+        {entries.map((e) => (
+          <div class="today-item">
+            <div class="today-item-head">
+              <span class="type">{e.type}</span>
+              <h3><a href={`/${e.id}/`}>{e.title}</a></h3>
+              {e.type === "routine" && (
+                <button class="btn sm streak-btn" data-note-id={e.id} type="button">
+                  Mark done today <span class="streak-count" data-note-id={e.id}></span>
+                </button>
+              )}
+            </div>
+            {e.items.length > 0 ? (
+              <ul class="checklist">
+                {e.items.map((it) => (
+                  <li class={it.done ? "done" : ""}>
+                    <span class="box">{it.done ? "✓" : ""}</span>{it.text}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p class="no-items">No checklist items in this note.</p>
+            )}
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</Layout>
+
+<script is:inline>
+  const list = document.querySelector(".today-list");
+  if (list) {
+    const streaksUrl = list.dataset.streaksUrl + "?t=" + Date.now();
+    let streaks = {};
+
+    function renderCounts() {
+      document.querySelectorAll(".streak-count").forEach((el) => {
+        const id = el.dataset.noteId;
+        const count = (streaks[id] || []).length;
+        el.textContent = count > 0 ? `· ${count} day${count === 1 ? "" : "s"}` : "";
+      });
+      document.querySelectorAll(".streak-btn").forEach((btn) => {
+        const id = btn.dataset.noteId;
+        const today = new Date().toISOString().slice(0, 10);
+        btn.classList.toggle("marked", (streaks[id] || []).includes(today));
+      });
+    }
+
+    fetch(streaksUrl)
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((data) => {
+        streaks = data || {};
+        renderCounts();
+      })
+      .catch(() => {});
+
+    list.addEventListener("click", async (e) => {
+      const btn = e.target.closest(".streak-btn");
+      if (!btn) return;
+      const noteId = btn.dataset.noteId;
+      btn.disabled = true;
+      try {
+        const res = await fetch("/api/streaks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ noteId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed");
+        streaks[noteId] = data.dates;
+        renderCounts();
+      } catch (err) {
+        alert(err.message || "Could not update streak. Sign in as the owner first.");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+</script>
