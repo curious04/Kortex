@@ -742,6 +742,82 @@ a:hover { color: var(--accent-light); }
   background: var(--bg-card-hover);
 }
 
+/* ---------- knowledge graph ---------- */
+.graph-page {
+  padding: 48px 0 80px;
+}
+.graph-page h1 {
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin: 0 0 8px;
+}
+.graph-sub {
+  color: var(--text-tertiary);
+  font-size: 0.9rem;
+  margin: 0 0 28px;
+}
+.graph-sub code {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+}
+.graph-canvas-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+#graph-svg {
+  width: 100%;
+  height: 600px;
+  display: block;
+}
+.graph-edge {
+  stroke: var(--border-hover);
+  stroke-width: 1.2;
+  transition: stroke 0.2s ease, stroke-width 0.2s ease;
+}
+.graph-edge-active {
+  stroke: var(--accent-light);
+  stroke-width: 2;
+}
+.graph-node {
+  fill: var(--accent);
+  stroke: var(--bg-primary);
+  stroke-width: 2;
+  cursor: pointer;
+  transition: r 0.15s ease, filter 0.15s ease;
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+.graph-node-link { fill: #6ee7b7; }
+.graph-node-idea { fill: #c084fc; }
+.graph-node-task { fill: #fbbf24; }
+.graph-node-routine { fill: #f472b6; }
+.graph-node-reference { fill: #38bdf8; }
+.graph-node-doc { fill: #a78bfa; }
+.graph-label {
+  fill: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.graph-page .empty {
+  color: var(--text-tertiary);
+  padding: 40px 0;
+}
+.graph-page .empty code {
+  font-family: var(--font-mono);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+}
+
 /* ---------- modal ---------- */
 .modal-backdrop {
   position: fixed;

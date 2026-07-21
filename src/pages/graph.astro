@@ -1,0 +1,150 @@
+---
+export const prerender = true;
+import { getCollection } from "astro:content";
+import Layout from "../layouts/Layout.astro";
+import { WIKILINK_RE, wikilinkSlug } from "../lib/wikilinks.mjs";
+
+const notes = await getCollection("notes", ({ data }) => data.public !== false);
+const slugToId = new Map(notes.map((n) => [wikilinkSlug(n.data.title), n.id]));
+
+const nodes = notes.map((n) => ({ id: n.id, title: n.data.title, type: n.data.type }));
+
+const edgeSet = new Set();
+const edges = [];
+for (const n of notes) {
+  const matches = [...(n.body || "").matchAll(WIKILINK_RE)];
+  for (const m of matches) {
+    const targetId = slugToId.get(wikilinkSlug(m[1].trim()));
+    if (!targetId || targetId === n.id) continue;
+    const key = [n.id, targetId].sort().join("::");
+    if (edgeSet.has(key)) continue;
+    edgeSet.add(key);
+    edges.push({ source: n.id, target: targetId });
+  }
+}
+---
+
+<Layout title="Knowledge graph">
+  <div class="wrap graph-page">
+    <h1 class="animate-in">Knowledge graph</h1>
+    <p class="graph-sub animate-in delay-1">
+      {nodes.length} notes &middot; {edges.length} connections via <code>[[wiki-links]]</code>
+    </p>
+
+    {nodes.length === 0 ? (
+      <p class="empty">No notes yet. Add some, and link them with <code>[[Note Title]]</code> in the content to see them connect here.</p>
+    ) : (
+      <div class="graph-canvas-wrap animate-in delay-2">
+        <svg id="graph-svg" data-nodes={JSON.stringify(nodes)} data-edges={JSON.stringify(edges)}></svg>
+      </div>
+    )}
+  </div>
+</Layout>
+
+<script is:inline>
+  const svg = document.getElementById("graph-svg");
+  if (svg) {
+    const nodes = JSON.parse(svg.dataset.nodes);
+    const edges = JSON.parse(svg.dataset.edges);
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+
+    const width = svg.clientWidth || 900;
+    const height = 600;
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+    nodes.forEach((n, i) => {
+      const angle = (i / nodes.length) * Math.PI * 2;
+      const r = Math.min(width, height) / 3;
+      n.x = width / 2 + Math.cos(angle) * r;
+      n.y = height / 2 + Math.sin(angle) * r;
+      n.vx = 0;
+      n.vy = 0;
+    });
+
+    // ---------- simple force-directed layout (no external library) ----------
+    for (let iter = 0; iter < 250; iter++) {
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const a = nodes[i], b = nodes[j];
+          let dx = a.x - b.x, dy = a.y - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
+          const force = 1800 / (dist * dist);
+          dx = (dx / dist) * force;
+          dy = (dy / dist) * force;
+          a.vx += dx; a.vy += dy;
+          b.vx -= dx; b.vy -= dy;
+        }
+      }
+      for (const e of edges) {
+        const a = byId.get(e.source), b = byId.get(e.target);
+        if (!a || !b) continue;
+        let dx = b.x - a.x, dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
+        const force = (dist - 130) * 0.02;
+        dx = (dx / dist) * force;
+        dy = (dy / dist) * force;
+        a.vx += dx; a.vy += dy;
+        b.vx -= dx; b.vy -= dy;
+      }
+      for (const n of nodes) {
+        n.vx += (width / 2 - n.x) * 0.002;
+        n.vy += (height / 2 - n.y) * 0.002;
+        n.vx *= 0.85; n.vy *= 0.85;
+        n.x += n.vx; n.y += n.vy;
+        n.x = Math.max(50, Math.min(width - 50, n.x));
+        n.y = Math.max(50, Math.min(height - 50, n.y));
+      }
+    }
+
+    // ---------- render ----------
+    const NS = "http://www.w3.org/2000/svg";
+    for (const e of edges) {
+      const a = byId.get(e.source), b = byId.get(e.target);
+      if (!a || !b) continue;
+      const line = document.createElementNS(NS, "line");
+      line.setAttribute("x1", a.x);
+      line.setAttribute("y1", a.y);
+      line.setAttribute("x2", b.x);
+      line.setAttribute("y2", b.y);
+      line.setAttribute("class", "graph-edge");
+      line.dataset.source = e.source;
+      line.dataset.target = e.target;
+      svg.appendChild(line);
+    }
+
+    for (const n of nodes) {
+      const link = document.createElementNS(NS, "a");
+      link.setAttribute("href", `/${n.id}/`);
+
+      const circle = document.createElementNS(NS, "circle");
+      circle.setAttribute("cx", n.x);
+      circle.setAttribute("cy", n.y);
+      circle.setAttribute("r", 9);
+      circle.setAttribute("class", `graph-node graph-node-${n.type}`);
+
+      const text = document.createElementNS(NS, "text");
+      text.setAttribute("x", n.x);
+      text.setAttribute("y", n.y + 22);
+      text.setAttribute("class", "graph-label");
+      text.textContent = n.title.length > 20 ? n.title.slice(0, 18) + "…" : n.title;
+
+      link.appendChild(circle);
+      link.appendChild(text);
+      svg.appendChild(link);
+
+      link.addEventListener("mouseenter", () => {
+        svg.querySelectorAll(".graph-edge").forEach((l) => {
+          l.classList.toggle(
+            "graph-edge-active",
+            l.dataset.source === n.id || l.dataset.target === n.id
+          );
+        });
+        circle.setAttribute("r", 12);
+      });
+      link.addEventListener("mouseleave", () => {
+        svg.querySelectorAll(".graph-edge").forEach((l) => l.classList.remove("graph-edge-active"));
+        circle.setAttribute("r", 9);
+      });
+    }
+  }
+</script>
