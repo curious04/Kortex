@@ -399,6 +399,52 @@ a:hover { color: var(--accent-light); }
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
+.search-results-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  max-height: 360px;
+  overflow-y: auto;
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  padding: 6px;
+}
+.search-result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+}
+.search-result:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+.search-result-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.search-result-excerpt {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+}
+.search-result-excerpt mark {
+  background: var(--accent-glow);
+  color: var(--accent-light);
+  border-radius: 3px;
+}
+.search-results-empty {
+  padding: 12px;
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  margin: 0;
+}
 .chips {
   display: flex;
   flex-wrap: wrap;

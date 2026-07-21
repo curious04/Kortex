@@ -27,7 +27,7 @@ const ghOwner = SITE.github.owner;
     <title>{pageTitle}</title>
   </head>
   <body>
-    <header class="site-header">
+    <header class="site-header" data-pagefind-ignore>
       <div class="wrap">
         <a class="brand" href="/">
           <img class="mark" src="/favicon.svg" alt="" />
@@ -44,7 +44,7 @@ const ghOwner = SITE.github.owner;
 
     <slot />
 
-    <footer class="site-footer">
+    <footer class="site-footer" data-pagefind-ignore>
       <div class="wrap">
         <p>Kortex — your knowledge, versioned and yours forever.</p>
       </div>
@@ -187,6 +187,36 @@ const ghOwner = SITE.github.owner;
         } catch (err) {
           fileDrop.textContent = 'Upload failed — click to retry';
           toast(err.message || 'Upload failed', 'error');
+        }
+      });
+
+      // Auto link preview: when a URL is pasted/entered, fetch title + description
+      const urlInput = document.getElementById('add-url');
+      const titleInput = document.getElementById('add-title');
+      const contentInput = document.getElementById('add-content');
+      const typeSelect = document.getElementById('add-type');
+      let lastPreviewedUrl = null;
+
+      urlInput?.addEventListener('blur', async () => {
+        const val = urlInput.value.trim();
+        if (!val || val === lastPreviewedUrl) return;
+        try {
+          new URL(val);
+        } catch {
+          return;
+        }
+        lastPreviewedUrl = val;
+
+        try {
+          const res = await fetch(`/api/content/preview?url=${encodeURIComponent(val)}`);
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+          if (!titleInput.value.trim() && data.title) titleInput.value = data.title;
+          if (!contentInput.value.trim() && data.description) contentInput.value = data.description;
+          if (typeSelect.value === 'note') typeSelect.value = 'link';
+          toast('Link preview loaded', 'success');
+        } catch (err) {
+          // Non-fatal — user can still fill in the form manually
         }
       });
 

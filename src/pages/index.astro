@@ -31,7 +31,7 @@ function excerpt(body: string | undefined) {
 
 <Layout>
   <!-- Hero -->
-  <section class="hero" id="hero">
+  <section class="hero" id="hero" data-pagefind-ignore>
     <div class="hero-orbs" aria-hidden="true">
       <span class="orb orb-1"></span>
       <span class="orb orb-2"></span>
@@ -76,6 +76,7 @@ function excerpt(body: string | undefined) {
           placeholder="Search everything..."
           autocomplete="off"
         />
+        <div class="search-results-panel" id="search-results" hidden></div>
       </div>
       <div class="chips" id="type-chips">
         <button class="chip" data-type="all" aria-pressed="true">All</button>
@@ -159,6 +160,7 @@ function excerpt(body: string | undefined) {
   const grid = document.getElementById("grid");
   const empty = document.getElementById("empty");
   const chips = document.getElementById("type-chips");
+  const resultsPanel = document.getElementById("search-results");
   const cards = Array.from(grid.querySelectorAll(".card"));
   cards.forEach(attachTilt);
   let activeType = "all";
@@ -176,9 +178,57 @@ function excerpt(body: string | undefined) {
     empty.hidden = shown !== 0;
   }
 
+  // ---------- Real fuzzy/full-text search via Pagefind ----------
+  // Pagefind indexes each note's full body (not just the visible excerpt),
+  // so this surfaces matches the simple substring filter above would miss.
+  let pagefind = null;
+  (async () => {
+    try {
+      pagefind = await import("/pagefind/pagefind.js");
+      await pagefind.init();
+    } catch {
+      // No index yet (e.g. local `astro dev`, or nothing published yet) — the
+      // basic substring filter above still works fine without this.
+    }
+  })();
+
+  let searchDebounce;
+  async function runPagefindSearch(q) {
+    if (!pagefind || !q) {
+      resultsPanel.hidden = true;
+      resultsPanel.innerHTML = "";
+      return;
+    }
+    const res = await pagefind.search(q);
+    const items = await Promise.all(res.results.slice(0, 8).map((r) => r.data()));
+    if (!items.length) {
+      resultsPanel.innerHTML = `<p class="search-results-empty">No matches in full note content.</p>`;
+      resultsPanel.hidden = false;
+      return;
+    }
+    resultsPanel.innerHTML = items
+      .map(
+        (item) => `
+        <a class="search-result" href="${item.url}">
+          <span class="search-result-title">${item.meta?.title || item.url}</span>
+          <span class="search-result-excerpt">${item.excerpt}</span>
+        </a>`
+      )
+      .join("");
+    resultsPanel.hidden = false;
+  }
+
   search.addEventListener("input", (e) => {
     query = e.target.value.trim().toLowerCase();
     apply();
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => runPagefindSearch(query), 200);
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".search-wrap")) {
+      resultsPanel.hidden = true;
+    }
   });
 
   chips.addEventListener("click", (e) => {
