@@ -194,21 +194,45 @@ const ghOwner = SITE.github.owner;
         setTimeout(() => el.remove(), 4500);
       }
 
-      // ========== Deployment status polling ==========
+      // ========== Deployment status polling (persists across page navigation) ==========
       // After a direct commit (add/edit/delete), Vercel needs to build & deploy before the
-      // change is actually visible. Poll our server for that commit's deployment status and
-      // only pop up "Deployed!" (then run onReady, e.g. a reload) once it's really READY —
-      // instead of guessing with a fixed timeout.
+      // change is actually visible. We stash the pending commit in localStorage so that even
+      // if the user navigates away — back to home, into another note, or straight into
+      // adding something new — before it's done, whichever page they land on resumes the
+      // polling and pops the "Deployed!" toast (and refreshes) once it's really READY.
+      const PENDING_DEPLOY_KEY = 'kortex:pendingDeploy';
+
+      function savePendingDeploy(commitSha, startedAt) {
+        try {
+          localStorage.setItem(PENDING_DEPLOY_KEY, JSON.stringify({ commitSha, startedAt }));
+        } catch {}
+      }
+      function clearPendingDeploy() {
+        try { localStorage.removeItem(PENDING_DEPLOY_KEY); } catch {}
+      }
+      function loadPendingDeploy() {
+        try {
+          const raw = localStorage.getItem(PENDING_DEPLOY_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch {
+          return null;
+        }
+      }
+
       window.kortexAwaitDeploy = function (commitSha, opts = {}) {
-        const { onReady, timeoutMs = 5 * 60 * 1000, intervalMs = 4000 } = opts;
-        const done = () => onReady?.();
+        const { onReady, timeoutMs = 5 * 60 * 1000, intervalMs = 4000, startedAt: resumeStartedAt } = opts;
+        const done = () => {
+          clearPendingDeploy();
+          onReady?.();
+        };
 
         if (!commitSha) {
           done();
           return;
         }
 
-        const startedAt = Date.now();
+        const startedAt = resumeStartedAt || Date.now();
+        if (!resumeStartedAt) savePendingDeploy(commitSha, startedAt);
         let announcedBuilding = false;
 
         async function poll() {
@@ -238,10 +262,10 @@ const ghOwner = SITE.github.owner;
             }
             if (state === 'READY') {
               toast('Deployed! Refreshing...', 'success');
-              done();
+              setTimeout(done, 1500); // let the toast actually be seen before reloading
             } else if (state === 'ERROR' || state === 'CANCELED') {
               toast('Deployment failed — check your Vercel dashboard.', 'error');
-              done();
+              setTimeout(done, 1500);
             } else {
               setTimeout(poll, intervalMs);
             }
@@ -251,6 +275,21 @@ const ghOwner = SITE.github.owner;
         }
         poll();
       };
+
+      // On every page load, resume polling for any deploy that was still pending when the
+      // user navigated here. Skip the auto-refresh if they're mid-way through adding a new
+      // note right now, so we don't wipe out an unsaved form — they'll still see the toast.
+      (function resumePendingDeploy() {
+        const pending = loadPendingDeploy();
+        if (!pending?.commitSha) return;
+        window.kortexAwaitDeploy(pending.commitSha, {
+          startedAt: pending.startedAt,
+          onReady: () => {
+            const addModalOpen = document.getElementById('modal-add')?.classList.contains('open');
+            if (!addModalOpen) location.reload();
+          },
+        });
+      })();
 
       // ========== Button wiring (called after auth loads) ==========
       function initButtons() {
