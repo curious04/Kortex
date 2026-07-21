@@ -31,7 +31,13 @@ function excerpt(body: string | undefined) {
 
 <Layout>
   <!-- Hero -->
-  <section class="hero">
+  <section class="hero" id="hero">
+    <div class="hero-orbs" aria-hidden="true">
+      <span class="orb orb-1"></span>
+      <span class="orb orb-2"></span>
+      <span class="orb orb-3"></span>
+    </div>
+    <div class="hero-spotlight" id="hero-spotlight" aria-hidden="true"></div>
     <div class="wrap">
       <span class="label animate-in">Your knowledge hub</span>
       <h1 class="animate-in delay-1">Everything you know,<br/>in one place.</h1>
@@ -40,6 +46,7 @@ function excerpt(body: string | undefined) {
         <a class="btn" href={`https://github.com/${SITE.github.owner}/${SITE.github.repo}`} target="_blank" rel="noopener">
           View source
         </a>
+        <span class="kbd-hint"><kbd>⌘</kbd>/<kbd>Ctrl</kbd> + <kbd>K</kbd> to quick-add</span>
       </div>
     </div>
   </section>
@@ -125,11 +132,35 @@ function excerpt(body: string | undefined) {
 </Layout>
 
 <script is:inline>
+  // ---------- Cursor-following spotlight in hero ----------
+  const hero = document.getElementById("hero");
+  const spotlight = document.getElementById("hero-spotlight");
+  hero?.addEventListener("pointermove", (e) => {
+    const rect = hero.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    spotlight.style.background = `radial-gradient(circle at ${x}% ${y}%, rgba(129,140,248,0.16), transparent 55%)`;
+  });
+
+  // ---------- 3D tilt-on-hover for cards ----------
+  function attachTilt(card) {
+    card.addEventListener("pointermove", (e) => {
+      const rect = card.getBoundingClientRect();
+      const px = (e.clientX - rect.left) / rect.width - 0.5;
+      const py = (e.clientY - rect.top) / rect.height - 0.5;
+      card.style.transform = `perspective(700px) rotateX(${(-py * 6).toFixed(2)}deg) rotateY(${(px * 8).toFixed(2)}deg) translateZ(4px)`;
+    });
+    card.addEventListener("pointerleave", () => {
+      card.style.transform = "";
+    });
+  }
+
   const search = document.getElementById("search");
   const grid = document.getElementById("grid");
   const empty = document.getElementById("empty");
   const chips = document.getElementById("type-chips");
   const cards = Array.from(grid.querySelectorAll(".card"));
+  cards.forEach(attachTilt);
   let activeType = "all";
   let query = "";
 

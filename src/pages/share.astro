@@ -1,0 +1,91 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getSession } from '../lib/auth';
+import { saveNote } from '../lib/notes';
+
+// SSR (no prerender) — this page must read cookies/query params at request time.
+const params = Astro.url.searchParams;
+const sharedTitle = params.get('title')?.trim() || '';
+const sharedText = params.get('text')?.trim() || '';
+const sharedUrl = params.get('url')?.trim() || '';
+const hasSharedPayload = Boolean(sharedTitle || sharedText || sharedUrl);
+
+const session = getSession(Astro.cookies);
+
+let result: { action: 'committed' | 'pr_created'; pr_url?: string } | null = null;
+let error: string | null = null;
+
+if (session && hasSharedPayload) {
+  const title = sharedTitle || sharedUrl || sharedText.slice(0, 60) || 'Shared item';
+  const type = sharedUrl ? 'link' : 'note';
+  try {
+    result = await saveNote(session, {
+      title,
+      type,
+      url: sharedUrl || undefined,
+      content: sharedText || (sharedUrl ? '' : undefined),
+    });
+  } catch (err: any) {
+    error = err.message;
+  }
+}
+---
+
+<Layout title="Share to Kortex">
+  <section class="wrap share-page">
+    {!session && (
+      <div class="share-card">
+        <h1>Sign in to save this</h1>
+        <p>Sign in with GitHub, then share again to Kortex.</p>
+        <a class="btn primary" href="/api/auth/login">Sign in with GitHub</a>
+      </div>
+    )}
+    {session && result && (
+      <div class="share-card">
+        <h1>Saved ✅</h1>
+        <p>{result.action === 'committed' ? 'Published directly to your Kortex.' : 'Submitted as a pull request for review.'}</p>
+        {result.pr_url && <a class="btn" href={result.pr_url} target="_blank" rel="noopener">View pull request</a>}
+        <a class="btn primary" href="/">Go to Kortex</a>
+      </div>
+    )}
+    {session && error && (
+      <div class="share-card">
+        <h1>Something went wrong</h1>
+        <p>{error}</p>
+        <a class="btn" href="/">Go to Kortex</a>
+      </div>
+    )}
+    {session && !hasSharedPayload && (
+      <div class="share-card">
+        <h1>Nothing shared</h1>
+        <p>Use your phone's Share button and choose Kortex, or add content from the homepage.</p>
+        <a class="btn" href="/">Go to Kortex</a>
+      </div>
+    )}
+  </section>
+</Layout>
+
+<style>
+  .share-page {
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 1rem;
+  }
+  .share-card {
+    text-align: center;
+    max-width: 32rem;
+  }
+  .share-card h1 {
+    font-size: 1.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .share-card p {
+    color: var(--text-tertiary, #888);
+    margin-bottom: 1.5rem;
+  }
+  .share-card .btn {
+    margin: 0 0.25rem;
+  }
+</style>
