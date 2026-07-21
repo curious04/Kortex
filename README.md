@@ -56,6 +56,7 @@ Open http://localhost:4321
    - `RESEND_API_KEY` (optional) — enables emailing new owners an invite when you add them from the UI. Free tier at https://resend.com. Without a verified sending domain, Resend's sandbox mode only delivers to the email on your Resend account — verify a domain to email arbitrary people.
    - `RESEND_FROM` (optional) — the "from" address for owner-invite emails, e.g. `Kortex <notify@yourdomain.com>`. Defaults to Resend's shared sandbox address.
    - `GROQ_API_KEY` (optional) — enables the "✨ Suggest tags & type" button in the Add modal. Get a free key at https://console.groq.com/keys. Without it, that button just shows a friendly error and everything else still works.
+   - `VERCEL_TOKEN` + `VERCEL_PROJECT_ID` (optional) — lets Kortex show a "Deployed!" popup at the exact moment your change actually goes live, instead of guessing with a fixed delay. Get a token at https://vercel.com/account/tokens and the project ID from your project's Settings → General page. If your project belongs to a team, also set `VERCEL_TEAM_ID` (Settings → General on the team). Without these, Kortex just falls back to a short fixed delay before refreshing.
 4. Deploy. Done.
 5. Update your GitHub OAuth App's callback URL to match Vercel.
 

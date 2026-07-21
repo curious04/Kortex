@@ -48,8 +48,8 @@ export async function saveNote(session: Session, input: NoteInput) {
   const path = `content/notes/${slugify(input.title)}.md`;
 
   if (await isOwnerAsync(session.token, session.username)) {
-    await createFile(session.token, path, markdown, `Add: ${input.title}`);
-    return { success: true, action: 'committed' as const };
+    const result = await createFile(session.token, path, markdown, `Add: ${input.title}`);
+    return { success: true, action: 'committed' as const, commitSha: result.commit?.sha as string | undefined };
   }
 
   const pr = await createContributionPR(session.token, session.username, path, markdown, input.title);
@@ -70,8 +70,8 @@ export async function updateNote(session: Session, id: string, input: NoteInput)
   const attachment = extractField(existing.content, 'attachment');
 
   const markdown = buildNoteMarkdown(input, { created, extra: { pinned, attachment } });
-  await createFile(session.token, path, markdown, `Update: ${input.title}`);
-  return { success: true };
+  const result = await createFile(session.token, path, markdown, `Update: ${input.title}`);
+  return { success: true, commitSha: result.commit?.sha as string | undefined };
 }
 
 /** Delete an existing note — owners only, commits directly. */
@@ -83,7 +83,7 @@ export async function deleteNote(session: Session, id: string) {
   const existing = await getFile(session.token, path);
   if (!existing) throw new Error('Note not found');
 
-  await deleteFile(session.token, path, `Delete: ${id}`);
-  return { success: true };
+  const result = await deleteFile(session.token, path, `Delete: ${id}`);
+  return { success: true, commitSha: result.commit?.sha as string | undefined };
 }
 

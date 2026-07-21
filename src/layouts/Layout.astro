@@ -194,6 +194,64 @@ const ghOwner = SITE.github.owner;
         setTimeout(() => el.remove(), 4500);
       }
 
+      // ========== Deployment status polling ==========
+      // After a direct commit (add/edit/delete), Vercel needs to build & deploy before the
+      // change is actually visible. Poll our server for that commit's deployment status and
+      // only pop up "Deployed!" (then run onReady, e.g. a reload) once it's really READY —
+      // instead of guessing with a fixed timeout.
+      window.kortexAwaitDeploy = function (commitSha, opts = {}) {
+        const { onReady, timeoutMs = 5 * 60 * 1000, intervalMs = 4000 } = opts;
+        const done = () => onReady?.();
+
+        if (!commitSha) {
+          done();
+          return;
+        }
+
+        const startedAt = Date.now();
+        let announcedBuilding = false;
+
+        async function poll() {
+          if (Date.now() - startedAt > timeoutMs) {
+            toast('Still deploying — refresh in a bit to see your change.', 'info');
+            done();
+            return;
+          }
+          try {
+            const res = await fetch(`/api/deploy-status?sha=${encodeURIComponent(commitSha)}`);
+            const data = await res.json();
+
+            if (!data.configured) {
+              // No Vercel token/project set up — fall back to a short fixed delay
+              setTimeout(done, 2000);
+              return;
+            }
+
+            const state = data.deployment?.state;
+            if (!state) {
+              setTimeout(poll, intervalMs);
+              return;
+            }
+            if (!announcedBuilding && state !== 'READY') {
+              announcedBuilding = true;
+              toast('Deploying your change...', 'info');
+            }
+            if (state === 'READY') {
+              toast('Deployed! Refreshing...', 'success');
+              done();
+            } else if (state === 'ERROR' || state === 'CANCELED') {
+              toast('Deployment failed — check your Vercel dashboard.', 'error');
+              done();
+            } else {
+              setTimeout(poll, intervalMs);
+            }
+          } catch {
+            setTimeout(poll, intervalMs);
+          }
+        }
+        poll();
+      };
+
       // ========== Button wiring (called after auth loads) ==========
       function initButtons() {
 
@@ -521,14 +579,15 @@ const ghOwner = SITE.github.owner;
             relatedBox.innerHTML = '';
 
             if (editId) {
-              toast('Note updated! Redeploying...', 'success');
+              toast('Note updated! Deploying...', 'info');
+              window.kortexAwaitDeploy(result.commitSha, { onReady: () => location.reload() });
             } else if (result.action === 'committed') {
-              toast('Published! Redeploying...', 'success');
+              toast('Published! Deploying...', 'info');
+              window.kortexAwaitDeploy(result.commitSha, { onReady: () => location.reload() });
             } else if (result.action === 'pr_created') {
               toast('Suggestion submitted as a Pull Request!', 'success');
+              setTimeout(() => location.reload(), 1500);
             }
-            // Reload after short delay to show updated content
-            setTimeout(() => location.reload(), 2000);
           } else {
             throw new Error(result.error);
           }

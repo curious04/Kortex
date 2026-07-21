@@ -105,7 +105,13 @@ const backlinks = allNotes.filter((n) => {
       let result = {};
       try { result = text ? JSON.parse(text) : {}; } catch { /* non-JSON response */ }
       if (!res.ok) throw new Error(result.error || `Delete failed (${res.status})`);
-      window.location.href = '/';
+      const goHome = () => { window.location.href = '/'; };
+      if (window.toast) window.toast('Deleted! Deploying...', 'info');
+      if (window.kortexAwaitDeploy) {
+        window.kortexAwaitDeploy(result.commitSha, { onReady: goHome });
+      } else {
+        goHome();
+      }
     } catch (err) {
       alert(err.message || 'Delete failed');
     }
