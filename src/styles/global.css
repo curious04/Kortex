@@ -705,6 +705,17 @@ a:hover { color: var(--accent-light); }
 .prose a.wikilink:hover {
   border-bottom-color: var(--accent-light);
 }
+.prose a.wikilink-external::after {
+  content: "\2197";
+  display: inline-block;
+  margin-left: 3px;
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+.prose a.wikilink-missing {
+  color: var(--text-tertiary);
+  border-bottom-style: dotted;
+}
 .backlinks {
   margin-top: 48px;
   padding-top: 24px;

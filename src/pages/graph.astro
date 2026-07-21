@@ -2,10 +2,10 @@
 export const prerender = true;
 import { getCollection } from "astro:content";
 import Layout from "../layouts/Layout.astro";
-import { WIKILINK_RE, wikilinkSlug } from "../lib/wikilinks.mjs";
+import { WIKILINK_RE, wikilinkSlug, resolveWikilink } from "../lib/wikilinks.mjs";
 
 const notes = await getCollection("notes", ({ data }) => data.public !== false);
-const slugToId = new Map(notes.map((n) => [wikilinkSlug(n.data.title), n.id]));
+const candidates = notes.map((n) => ({ id: n.id, slug: wikilinkSlug(n.data.title) }));
 
 const nodes = notes.map((n) => ({ id: n.id, title: n.data.title, type: n.data.type }));
 
@@ -14,12 +14,12 @@ const edges = [];
 for (const n of notes) {
   const matches = [...(n.body || "").matchAll(WIKILINK_RE)];
   for (const m of matches) {
-    const targetId = slugToId.get(wikilinkSlug(m[1].trim()));
-    if (!targetId || targetId === n.id) continue;
-    const key = [n.id, targetId].sort().join("::");
+    const target = resolveWikilink(m[1].trim(), candidates);
+    if (!target || target.id === n.id) continue;
+    const key = [n.id, target.id].sort().join("::");
     if (edgeSet.has(key)) continue;
     edgeSet.add(key);
-    edges.push({ source: n.id, target: targetId });
+    edges.push({ source: n.id, target: target.id });
   }
 }
 ---

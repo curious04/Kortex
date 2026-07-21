@@ -3,7 +3,7 @@ export const prerender = true;
 
 import { getCollection, render } from "astro:content";
 import Layout from "../layouts/Layout.astro";
-import { WIKILINK_RE, wikilinkSlug } from "../lib/wikilinks.mjs";
+import { WIKILINK_RE, wikilinkSlug, resolveWikilink } from "../lib/wikilinks.mjs";
 
 export async function getStaticPaths() {
   const notes = await getCollection("notes", ({ data }) => data.public !== false);
@@ -18,11 +18,11 @@ const { Content } = await render(note);
 const date = note.data.updated ?? note.data.created;
 
 // ---------- Backlinks: which other notes reference this one via [[Title]] ----------
-const targetSlug = wikilinkSlug(note.data.title);
+const backlinkCandidates = allNotes.map((n) => ({ id: n.id, slug: wikilinkSlug(n.data.title) }));
 const backlinks = allNotes.filter((n) => {
   if (n.id === note.id) return false;
   const matches = [...(n.body || "").matchAll(WIKILINK_RE)];
-  return matches.some((m) => wikilinkSlug(m[1].trim()) === targetSlug);
+  return matches.some((m) => resolveWikilink(m[1].trim(), backlinkCandidates)?.id === note.id);
 });
 ---
 
