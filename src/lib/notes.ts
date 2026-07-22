@@ -1,5 +1,6 @@
-import { isOwnerAsync } from './owners';
+import { isOwnerAsync, getOwnerEmails } from './owners';
 import { createFile, createContributionPR, getFile, deleteFile } from './github';
+import { isEmailConfigured, sendNewContributionEmail } from './email';
 import type { Session } from './auth';
 
 export function slugify(title: string) {
@@ -53,6 +54,25 @@ export async function saveNote(session: Session, input: NoteInput) {
   }
 
   const pr = await createContributionPR(session.token, session.username, path, markdown, input.title);
+
+  // Best-effort notify owners by email that a new PR is waiting for review — a
+  // failed/unconfigured notification must never fail the publish itself.
+  if (isEmailConfigured()) {
+    try {
+      const to = await getOwnerEmails(session.token);
+      if (to.length) {
+        await sendNewContributionEmail({
+          to,
+          contributor: session.username,
+          title: input.title,
+          prUrl: pr.html_url,
+        });
+      }
+    } catch {
+      // ignore — the PR was still created successfully
+    }
+  }
+
   return { success: true, action: 'pr_created' as const, pr_url: pr.html_url };
 }
 

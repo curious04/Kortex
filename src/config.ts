@@ -32,6 +32,16 @@ export const OWNERS: string[] = (process.env.KORTEX_OWNERS ?? SITE.github.owner)
   .map((u) => u.trim().toLowerCase())
   .filter(Boolean);
 
+/**
+ * Extra email addresses that always get notified about new contributor
+ * pull requests, regardless of whether an owner has a public GitHub email set.
+ * Comma-separated, e.g. KORTEX_NOTIFY_EMAIL=me@example.com,also-me@example.com
+ */
+export const NOTIFY_EMAILS: string[] = (process.env.KORTEX_NOTIFY_EMAIL ?? '')
+  .split(',')
+  .map((e) => e.trim())
+  .filter(Boolean);
+
 /** Groq API (free tier) — used for optional AI tag/type suggestions */
 export const AI = {
   groqApiKey: (process.env.GROQ_API_KEY ?? '').replace(/\s/g, ''),

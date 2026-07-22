@@ -1,4 +1,4 @@
-import { isOwner, OWNERS } from '../config';
+import { isOwner, OWNERS, NOTIFY_EMAILS } from '../config';
 import { createFile, getFile, getGithubUser, findGithubUserByEmail } from './github';
 import { isEmailConfigured, sendOwnerInviteEmail } from './email';
 import type { Session } from './auth';
@@ -38,6 +38,35 @@ export async function listOwners(token: string) {
   const staticList = OWNERS.map((username) => ({ username, isStatic: true as const }));
   const dynamicList = dynamic.map((o) => ({ ...o, isStatic: false as const }));
   return [...staticList, ...dynamicList];
+}
+
+/** Resolves a best-effort email address for every current owner (env-configured +
+ * UI-added), for notification purposes. UI-added owners use their stored email if
+ * set; anyone without a stored email falls back to their public GitHub profile
+ * email (if they have one listed). Owners we can't resolve an email for are simply
+ * skipped — this is used for optional notifications, never for anything critical.
+ * Also always includes any addresses from KORTEX_NOTIFY_EMAIL, so notifications
+ * work even if no owner has a public GitHub email set. */
+export async function getOwnerEmails(token: string): Promise<string[]> {
+  const dynamic = await getDynamicOwners(token);
+  const dynamicByUsername = new Map(dynamic.map((o) => [o.username.toLowerCase(), o]));
+  const allUsernames = new Set<string>([...OWNERS, ...dynamic.map((o) => o.username.toLowerCase())]);
+
+  const emails = new Set<string>(NOTIFY_EMAILS);
+  for (const username of allUsernames) {
+    const stored = dynamicByUsername.get(username)?.email;
+    if (stored) {
+      emails.add(stored);
+      continue;
+    }
+    try {
+      const ghUser = await getGithubUser(token, username);
+      if (ghUser?.email) emails.add(ghUser.email);
+    } catch {
+      // best-effort — skip owners we can't resolve an email for
+    }
+  }
+  return [...emails];
 }
 
 /** Accepts either a raw GitHub username or an email address connected to a GitHub account. */
