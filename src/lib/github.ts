@@ -52,15 +52,16 @@ export async function getFile(token: string, path: string, branch?: string) {
   return { content, sha: data.sha as string };
 }
 
-/** Create or update a file in the repo */
+/** Create or update a file in the repo (or a fork, when `repoOverride` is given) */
 export async function createFile(
   token: string,
   path: string,
   content: string,
   message: string,
   branch?: string,
+  repoOverride?: { owner: string; repo: string },
 ) {
-  const { owner, repo } = SITE.github;
+  const { owner, repo } = repoOverride ?? SITE.github;
   const b = branch ?? SITE.github.branch;
 
   // Check if file exists (for updates we need the sha)
@@ -223,7 +224,7 @@ export async function createContributionPR(
 
   // 3. Create a new branch in the fork
   const branchName = `kortex-${Date.now()}`;
-  await fetch(`${API}/repos/${username}/${repo}/git/refs`, {
+  const branchRes = await fetch(`${API}/repos/${username}/${repo}/git/refs`, {
     method: 'POST',
     headers: headers(token),
     body: JSON.stringify({
@@ -231,9 +232,17 @@ export async function createContributionPR(
       sha: baseSha,
     }),
   });
+  if (!branchRes.ok) {
+    const err = await branchRes.text();
+    throw new Error(`Branch creation failed: ${branchRes.status} — ${err}`);
+  }
 
-  // 4. Create file in the new branch
-  await createFile(token, path, content, `Add: ${title}`, branchName);
+  // 4. Create file in the new branch — this must target the *fork*
+  // (username/repo), not the upstream repo, since that's where `branchName`
+  // actually exists. Passing no repoOverride here would silently PUT against
+  // `${owner}/${repo}` with a branch ref that only exists in the fork, which
+  // GitHub's contents API reports as a 404 "Not Found".
+  await createFile(token, path, content, `Add: ${title}`, branchName, { owner: username, repo });
 
   // 5. Create PR from fork to upstream
   const prRes = await fetch(`${API}/repos/${owner}/${repo}/pulls`, {
