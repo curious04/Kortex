@@ -112,10 +112,9 @@ function excerpt(body: string | undefined) {
               )}
             </div>
             <h3>
-              {e.data.url ? (
-                <a href={e.data.url} target="_blank" rel="noopener">{e.data.title}</a>
-              ) : (
-                <a href={`/${e.id}/`}>{e.data.title}</a>
+              <a href={`/${e.id}/`}>{e.data.title}</a>
+              {e.data.url && (
+                <a class="card-external" href={e.data.url} target="_blank" rel="noopener" title="Open link">&nearr;</a>
               )}
             </h3>
             {excerpt(e.body) && <p class="excerpt">{excerpt(e.body)}</p>}

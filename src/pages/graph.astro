@@ -35,6 +35,10 @@ for (const n of notes) {
       </div>
       {nodes.length > 0 && (
         <div class="graph-toolbar animate-in delay-1">
+          <div class="graph-search-wrap">
+            <input type="text" id="graph-search" class="graph-search" placeholder="🔍 Find a note…" autocomplete="off" />
+            <div class="graph-search-results" id="graph-search-results" hidden></div>
+          </div>
           <button type="button" class="btn sm" id="graph-rotate-toggle" title="Toggle auto-rotate">⟳ Rotate</button>
           <button type="button" class="btn sm" id="graph-reset-view" title="Reset camera">⤢ Fit view</button>
           <button type="button" class="btn sm" id="graph-link-toggle" title="Manually connect two notes" hidden>🔗 Link nodes</button>
@@ -52,6 +56,14 @@ for (const n of notes) {
         <div class="graph-canvas-wrap animate-in delay-2">
           <div id="graph-3d" data-nodes={JSON.stringify(nodes)} data-edges={JSON.stringify(edges)}></div>
           <div class="graph-loading" id="graph-loading">Rendering 3D graph…</div>
+          <div class="graph-node-card" id="graph-node-card" hidden>
+            <div class="gnc-head">
+              <span class="gnc-type" id="gnc-type"></span>
+              <button type="button" class="gnc-close" id="gnc-close" aria-label="Close preview">✕</button>
+            </div>
+            <div class="gnc-title" id="gnc-title"></div>
+            <button type="button" class="btn sm primary" id="gnc-open">Open note →</button>
+          </div>
         </div>
         <div class="graph-legend animate-in delay-3">
           <span class="legend-item"><i class="legend-dot" style="background:#6366f1"></i>note</span>
@@ -61,7 +73,7 @@ for (const n of notes) {
           <span class="legend-item"><i class="legend-dot" style="background:#f472b6"></i>routine</span>
           <span class="legend-item"><i class="legend-dot" style="background:#38bdf8"></i>reference</span>
           <span class="legend-item"><i class="legend-dot" style="background:#a78bfa"></i>doc</span>
-          <span class="legend-hint">drag to orbit · scroll to zoom · click a node to open it</span>
+          <span class="legend-hint">tap/click a note to preview it, then again to open it · drag to orbit · scroll to zoom</span>
         </div>
       </>
     )}
@@ -93,6 +105,13 @@ for (const n of notes) {
   const resetBtn = document.getElementById("graph-reset-view");
   const linkModeBtn = document.getElementById("graph-link-toggle");
   const linkHint = document.getElementById("graph-link-hint");
+  const searchInput = document.getElementById("graph-search") as HTMLInputElement | null;
+  const searchResults = document.getElementById("graph-search-results");
+  const nodeCard = document.getElementById("graph-node-card");
+  const nodeCardType = document.getElementById("gnc-type");
+  const nodeCardTitle = document.getElementById("gnc-title");
+  const nodeCardOpen = document.getElementById("gnc-open");
+  const nodeCardClose = document.getElementById("gnc-close");
 
   if (container) {
     const nodes = JSON.parse(container.dataset.nodes || "[]");
@@ -111,11 +130,45 @@ for (const n of notes) {
 
     let linkMode = false;
     let selectedSourceId: string | null = null;
+    let previewedId: string | null = null;
     let linking = false;
+
+    // First click on a note previews its title (fixes: on mobile there's no hover to
+    // reveal the title before navigating away; on desktop with many nodes, a persistent
+    // preview beats having to hover each one to find the right note). Clicking the SAME
+    // note again (or the "Open note" button) actually navigates to it.
+    function showNodeCard(n: any) {
+      previewedId = n.id;
+      if (nodeCardType) nodeCardType.textContent = n.type;
+      if (nodeCardTitle) nodeCardTitle.textContent = n.title;
+      if (nodeCard) nodeCard.hidden = false;
+      Graph.refresh();
+    }
+
+    function hideNodeCard() {
+      previewedId = null;
+      if (nodeCard) nodeCard.hidden = true;
+      Graph.refresh();
+    }
+
+    function focusOnNode(n: any) {
+      const x = n.x || 0.01;
+      const y = n.y || 0.01;
+      const z = n.z || 0.01;
+      const distRatio = 1 + 90 / Math.hypot(x, y, z);
+      Graph.cameraPosition({ x: x * distRatio, y: y * distRatio, z: z * distRatio }, n, 1200);
+      controls.autoRotate = false;
+      rotateBtn?.classList.remove("active");
+      if (!linkMode) showNodeCard(n);
+    }
 
     async function handleNodeClick(n: any) {
       if (!linkMode) {
-        window.location.href = `/${n.id}/`;
+        if (previewedId === n.id) {
+          window.location.href = `/${n.id}/`;
+        } else {
+          showNodeCard(n);
+        }
         return;
       }
       if (linking) return;
@@ -178,7 +231,11 @@ for (const n of notes) {
       .nodeRelSize(4)
       .nodeOpacity(0.92)
       .nodeResolution(16)
-      .nodeColor((n: any) => (n.id === selectedSourceId ? "#ffffff" : (NODE_COLORS[n.type] || NODE_COLORS.note)))
+      .nodeColor((n: any) => {
+        if (n.id === selectedSourceId) return "#ffffff";
+        if (n.id === previewedId) return "#facc15";
+        return NODE_COLORS[n.type] || NODE_COLORS.note;
+      })
       .linkColor(() => "rgba(160,160,200,0.35)")
       .linkOpacity(0.4)
       .linkWidth(0.6)
@@ -188,7 +245,8 @@ for (const n of notes) {
       .linkDirectionalParticleColor(() => "#818cf8")
       .enableNodeDrag(false)
       .onNodeClick((n: any) => handleNodeClick(n))
-      .onNodeHover((n: any) => { container.style.cursor = n ? "pointer" : linkMode ? "crosshair" : "default"; });
+      .onNodeHover((n: any) => { container.style.cursor = n ? "pointer" : linkMode ? "crosshair" : "default"; })
+      .onBackgroundClick(() => { if (!linkMode) hideNodeCard(); });
 
     const controls: any = Graph.controls();
     controls.autoRotate = true;
@@ -229,11 +287,96 @@ for (const n of notes) {
     linkModeBtn?.addEventListener("click", () => {
       linkMode = !linkMode;
       selectedSourceId = null;
-      Graph.refresh();
+      hideNodeCard();
       linkModeBtn.classList.toggle("active", linkMode);
       if (linkHint) linkHint.hidden = !linkMode;
       container.style.cursor = linkMode ? "crosshair" : "default";
     });
+
+    // ---- "Find a note" search: fuzzy-match by title, fly the camera to it ----
+    // Solves: with many nodes it's impractical to hover each one to find a specific
+    // note — type its title instead and jump straight to it.
+    function fuzzyScore(query: string, text: string) {
+      query = query.toLowerCase();
+      text = text.toLowerCase();
+      if (!query) return 0;
+      if (text.includes(query)) return 100 - text.indexOf(query);
+      let qi = 0;
+      for (let i = 0; i < text.length && qi < query.length; i++) {
+        if (text[i] === query[qi]) qi++;
+      }
+      return qi === query.length ? 10 : -1;
+    }
+
+    function renderSearchResults(query: string) {
+      if (!searchResults) return;
+      const matches = nodes
+        .map((n: any) => ({ ...n, score: fuzzyScore(query, n.title) }))
+        .filter((n: any) => n.score > 0)
+        .sort((a: any, b: any) => b.score - a.score)
+        .slice(0, 8);
+
+      if (!matches.length) {
+        searchResults.innerHTML = `<div class="graph-search-empty">No matching notes</div>`;
+        searchResults.hidden = false;
+        return;
+      }
+      searchResults.innerHTML = matches
+        .map(
+          (n: any) =>
+            `<div class="graph-search-item" data-id="${n.id}"><span class="gsi-title">${escapeHtml(n.title)}</span><span class="gsi-type">${escapeHtml(n.type)}</span></div>`,
+        )
+        .join("");
+      searchResults.hidden = false;
+    }
+
+    function selectSearchResult(id: string) {
+      const n = nodes.find((x: any) => x.id === id);
+      if (n) {
+        focusOnNode(n);
+        if (searchInput) searchInput.value = n.title;
+      }
+      if (searchResults) searchResults.hidden = true;
+    }
+
+    searchInput?.addEventListener("input", () => {
+      const q = searchInput.value.trim();
+      if (!q) {
+        if (searchResults) searchResults.hidden = true;
+        return;
+      }
+      renderSearchResults(q);
+    });
+
+    searchInput?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const first = searchResults?.querySelector(".graph-search-item") as HTMLElement | null;
+        if (first?.dataset.id) selectSearchResult(first.dataset.id);
+      } else if (e.key === "Escape") {
+        if (searchResults) searchResults.hidden = true;
+      }
+    });
+
+    searchResults?.addEventListener("mousedown", (e: any) => {
+      const item = e.target.closest(".graph-search-item");
+      if (item?.dataset.id) {
+        e.preventDefault();
+        selectSearchResult(item.dataset.id);
+      }
+    });
+
+    searchInput?.addEventListener("blur", () => {
+      setTimeout(() => {
+        if (searchResults) searchResults.hidden = true;
+      }, 150);
+    });
+
+    // ---- Node preview card actions ----
+    nodeCardOpen?.addEventListener("click", () => {
+      if (previewedId) window.location.href = `/${previewedId}/`;
+    });
+    nodeCardClose?.addEventListener("click", hideNodeCard);
   } else {
     loading?.remove();
   }
