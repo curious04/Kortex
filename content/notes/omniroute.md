@@ -13,3 +13,5 @@ Never stop coding. Connect every AI tool to 237 providers — 90+ free — throu
 Plug Claude Code, Codex, Cursor, Cline, Copilot & Antigravity into FREE Claude / GPT / Gemini. Auto-fallback.
 
 RTK + Caveman compression saves 15–95% tokens. Never hit limits.
+
+[[magicball agentic summit]]
