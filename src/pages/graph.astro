@@ -26,125 +26,132 @@ for (const n of notes) {
 
 <Layout title="Knowledge graph">
   <div class="wrap graph-page">
-    <h1 class="animate-in">Knowledge graph</h1>
-    <p class="graph-sub animate-in delay-1">
-      {nodes.length} notes &middot; {edges.length} connections via <code>[[wiki-links]]</code>
-    </p>
+    <div class="graph-heading-row">
+      <div>
+        <h1 class="animate-in">Knowledge graph</h1>
+        <p class="graph-sub animate-in delay-1">
+          {nodes.length} notes &middot; {edges.length} connections via <code>[[wiki-links]]</code>
+        </p>
+      </div>
+      {nodes.length > 0 && (
+        <div class="graph-toolbar animate-in delay-1">
+          <button type="button" class="btn sm" id="graph-rotate-toggle" title="Toggle auto-rotate">⟳ Rotate</button>
+          <button type="button" class="btn sm" id="graph-reset-view" title="Reset camera">⤢ Fit view</button>
+        </div>
+      )}
+    </div>
 
     {nodes.length === 0 ? (
       <p class="empty">No notes yet. Add some, and link them with <code>[[Note Title]]</code> in the content to see them connect here.</p>
     ) : (
-      <div class="graph-canvas-wrap animate-in delay-2">
-        <svg id="graph-svg" data-nodes={JSON.stringify(nodes)} data-edges={JSON.stringify(edges)}></svg>
-      </div>
+      <>
+        <div class="graph-canvas-wrap animate-in delay-2">
+          <div id="graph-3d" data-nodes={JSON.stringify(nodes)} data-edges={JSON.stringify(edges)}></div>
+          <div class="graph-loading" id="graph-loading">Rendering 3D graph…</div>
+        </div>
+        <div class="graph-legend animate-in delay-3">
+          <span class="legend-item"><i class="legend-dot" style="background:#6366f1"></i>note</span>
+          <span class="legend-item"><i class="legend-dot" style="background:#6ee7b7"></i>link</span>
+          <span class="legend-item"><i class="legend-dot" style="background:#c084fc"></i>idea</span>
+          <span class="legend-item"><i class="legend-dot" style="background:#fbbf24"></i>task</span>
+          <span class="legend-item"><i class="legend-dot" style="background:#f472b6"></i>routine</span>
+          <span class="legend-item"><i class="legend-dot" style="background:#38bdf8"></i>reference</span>
+          <span class="legend-item"><i class="legend-dot" style="background:#a78bfa"></i>doc</span>
+          <span class="legend-hint">drag to orbit · scroll to zoom · click a node to open it</span>
+        </div>
+      </>
     )}
   </div>
 </Layout>
 
-<script is:inline>
-  const svg = document.getElementById("graph-svg");
-  if (svg) {
-    const nodes = JSON.parse(svg.dataset.nodes);
-    const edges = JSON.parse(svg.dataset.edges);
-    const byId = new Map(nodes.map((n) => [n.id, n]));
+<script>
+  import ForceGraph3D from "3d-force-graph";
 
-    const width = svg.clientWidth || 900;
-    const height = 600;
-    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  const NODE_COLORS: Record<string, string> = {
+    note: "#6366f1",
+    link: "#6ee7b7",
+    idea: "#c084fc",
+    task: "#fbbf24",
+    routine: "#f472b6",
+    reference: "#38bdf8",
+    doc: "#a78bfa",
+  };
 
-    nodes.forEach((n, i) => {
-      const angle = (i / nodes.length) * Math.PI * 2;
-      const r = Math.min(width, height) / 3;
-      n.x = width / 2 + Math.cos(angle) * r;
-      n.y = height / 2 + Math.sin(angle) * r;
-      n.vx = 0;
-      n.vy = 0;
-    });
+  function escapeHtml(str: string) {
+    return String(str).replace(/[&<>"']/g, (c) => (
+      { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c
+    ));
+  }
 
-    // ---------- simple force-directed layout (no external library) ----------
-    for (let iter = 0; iter < 250; iter++) {
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const a = nodes[i], b = nodes[j];
-          let dx = a.x - b.x, dy = a.y - b.y;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
-          const force = 1800 / (dist * dist);
-          dx = (dx / dist) * force;
-          dy = (dy / dist) * force;
-          a.vx += dx; a.vy += dy;
-          b.vx -= dx; b.vy -= dy;
-        }
-      }
-      for (const e of edges) {
-        const a = byId.get(e.source), b = byId.get(e.target);
-        if (!a || !b) continue;
-        let dx = b.x - a.x, dy = b.y - a.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
-        const force = (dist - 130) * 0.02;
-        dx = (dx / dist) * force;
-        dy = (dy / dist) * force;
-        a.vx += dx; a.vy += dy;
-        b.vx -= dx; b.vy -= dy;
-      }
-      for (const n of nodes) {
-        n.vx += (width / 2 - n.x) * 0.002;
-        n.vy += (height / 2 - n.y) * 0.002;
-        n.vx *= 0.85; n.vy *= 0.85;
-        n.x += n.vx; n.y += n.vy;
-        n.x = Math.max(50, Math.min(width - 50, n.x));
-        n.y = Math.max(50, Math.min(height - 50, n.y));
-      }
-    }
+  const container = document.getElementById("graph-3d");
+  const loading = document.getElementById("graph-loading");
+  const rotateBtn = document.getElementById("graph-rotate-toggle");
+  const resetBtn = document.getElementById("graph-reset-view");
 
-    // ---------- render ----------
-    const NS = "http://www.w3.org/2000/svg";
+  if (container) {
+    const nodes = JSON.parse(container.dataset.nodes || "[]");
+    const edges = JSON.parse(container.dataset.edges || "[]");
+
+    // size nodes by how connected they are — hubs stand out more
+    const degree = new Map<string, number>();
     for (const e of edges) {
-      const a = byId.get(e.source), b = byId.get(e.target);
-      if (!a || !b) continue;
-      const line = document.createElementNS(NS, "line");
-      line.setAttribute("x1", a.x);
-      line.setAttribute("y1", a.y);
-      line.setAttribute("x2", b.x);
-      line.setAttribute("y2", b.y);
-      line.setAttribute("class", "graph-edge");
-      line.dataset.source = e.source;
-      line.dataset.target = e.target;
-      svg.appendChild(line);
+      degree.set(e.source, (degree.get(e.source) || 0) + 1);
+      degree.set(e.target, (degree.get(e.target) || 0) + 1);
     }
+    nodes.forEach((n: any) => { n.val = 1 + (degree.get(n.id) || 0) * 0.6; });
 
-    for (const n of nodes) {
-      const link = document.createElementNS(NS, "a");
-      link.setAttribute("href", `/${n.id}/`);
+    const wrap = container.closest(".graph-canvas-wrap") as HTMLElement | null;
 
-      const circle = document.createElementNS(NS, "circle");
-      circle.setAttribute("cx", n.x);
-      circle.setAttribute("cy", n.y);
-      circle.setAttribute("r", 9);
-      circle.setAttribute("class", `graph-node graph-node-${n.type}`);
+    const Graph = new ForceGraph3D(container)
+      .graphData({ nodes, links: edges })
+      .backgroundColor("#0a0a0c")
+      .showNavInfo(false)
+      .controlType("orbit")
+      .nodeLabel((n: any) => `<div class="graph-tip"><strong>${escapeHtml(n.title)}</strong><span>${escapeHtml(n.type)}</span></div>`)
+      .nodeVal("val")
+      .nodeRelSize(4)
+      .nodeOpacity(0.92)
+      .nodeResolution(16)
+      .nodeColor((n: any) => NODE_COLORS[n.type] || NODE_COLORS.note)
+      .linkColor(() => "rgba(160,160,200,0.35)")
+      .linkOpacity(0.4)
+      .linkWidth(0.6)
+      .linkDirectionalParticles(2)
+      .linkDirectionalParticleWidth(1.4)
+      .linkDirectionalParticleSpeed(0.006)
+      .linkDirectionalParticleColor(() => "#818cf8")
+      .onNodeClick((n: any) => { window.location.href = `/${n.id}/`; })
+      .onNodeHover((n: any) => { container.style.cursor = n ? "pointer" : "default"; });
 
-      const text = document.createElementNS(NS, "text");
-      text.setAttribute("x", n.x);
-      text.setAttribute("y", n.y + 22);
-      text.setAttribute("class", "graph-label");
-      text.textContent = n.title.length > 20 ? n.title.slice(0, 18) + "…" : n.title;
+    const controls: any = Graph.controls();
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.6;
+    rotateBtn?.classList.add("active");
 
-      link.appendChild(circle);
-      link.appendChild(text);
-      svg.appendChild(link);
+    container.addEventListener("pointerdown", () => {
+      if (controls.autoRotate) {
+        controls.autoRotate = false;
+        rotateBtn?.classList.remove("active");
+      }
+    }, { once: true });
 
-      link.addEventListener("mouseenter", () => {
-        svg.querySelectorAll(".graph-edge").forEach((l) => {
-          l.classList.toggle(
-            "graph-edge-active",
-            l.dataset.source === n.id || l.dataset.target === n.id
-          );
-        });
-        circle.setAttribute("r", 12);
-      });
-      link.addEventListener("mouseleave", () => {
-        svg.querySelectorAll(".graph-edge").forEach((l) => l.classList.remove("graph-edge-active"));
-        circle.setAttribute("r", 9);
-      });
+    function resize() {
+      const w = (wrap || container).clientWidth;
+      Graph.width(w);
+      Graph.height(Math.min(640, Math.max(420, Math.round(window.innerHeight * 0.62))));
     }
+    resize();
+    window.addEventListener("resize", resize);
+
+    setTimeout(() => Graph.zoomToFit(800, 60), 300);
+    loading?.remove();
+
+    rotateBtn?.addEventListener("click", () => {
+      controls.autoRotate = !controls.autoRotate;
+      rotateBtn.classList.toggle("active", controls.autoRotate);
+    });
+    resetBtn?.addEventListener("click", () => Graph.zoomToFit(800, 60));
+  } else {
+    loading?.remove();
   }
 </script>

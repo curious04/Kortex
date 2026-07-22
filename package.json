@@ -13,6 +13,7 @@
   "dependencies": {
     "@astrojs/node": "^9.5.5",
     "@astrojs/vercel": "^8.2.11",
+    "3d-force-graph": "^1.80.0",
     "astro": "^5.18.2",
     "unist-util-visit": "^5.1.0"
   },

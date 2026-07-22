@@ -791,6 +791,23 @@ a:hover { color: var(--accent-light); }
   letter-spacing: -0.03em;
   margin: 0 0 8px;
 }
+.graph-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.graph-toolbar {
+  display: flex;
+  gap: 8px;
+  padding-top: 4px;
+}
+.graph-toolbar .btn.active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent-light);
+}
 .graph-sub {
   color: var(--text-tertiary);
   font-size: 0.9rem;
@@ -807,43 +824,79 @@ a:hover { color: var(--accent-light); }
 .graph-canvas-wrap {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg-card);
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99, 102, 241, 0.1), var(--bg-card) 70%);
   overflow: hidden;
+  position: relative;
 }
-#graph-svg {
+#graph-3d {
   width: 100%;
-  height: 600px;
+  min-height: 420px;
   display: block;
 }
-.graph-edge {
-  stroke: var(--border-hover);
-  stroke-width: 1.2;
-  transition: stroke 0.2s ease, stroke-width 0.2s ease;
+#graph-3d canvas {
+  display: block;
+  border-radius: var(--radius);
 }
-.graph-edge-active {
-  stroke: var(--accent-light);
-  stroke-width: 2;
-}
-.graph-node {
-  fill: var(--accent);
-  stroke: var(--bg-primary);
-  stroke-width: 2;
-  cursor: pointer;
-  transition: r 0.15s ease, filter 0.15s ease;
-  filter: drop-shadow(0 0 6px var(--accent-glow));
-}
-.graph-node-link { fill: #6ee7b7; }
-.graph-node-idea { fill: #c084fc; }
-.graph-node-task { fill: #fbbf24; }
-.graph-node-routine { fill: #f472b6; }
-.graph-node-reference { fill: #38bdf8; }
-.graph-node-doc { fill: #a78bfa; }
-.graph-label {
-  fill: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-anchor: middle;
+.graph-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
   pointer-events: none;
+}
+.graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 6px currentColor;
+}
+.legend-hint {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+.graph-tip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: var(--radius-xs);
+  background: rgba(10, 10, 12, 0.92);
+  border: 1px solid var(--border-hover);
+  font-family: var(--font);
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.graph-tip span {
+  font-size: 0.68rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 .graph-page .empty {
   color: var(--text-tertiary);
