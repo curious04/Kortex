@@ -63,7 +63,10 @@ Open http://localhost:4321
 ## How it works
 
 ### Adding content (you)
-Click **+ Add** → fill the form → hit Publish.  
+Click **+ Add** → choose a mode:
+- **⚡ Quick capture** (default): just dump raw text — a link, a thought, meeting notes, a to-do — into one box and hit "Analyze & Publish". AI reads it and decides the title, type and tags for you, then publishes immediately. Falls back to a simple heuristic (first line as title, link-detection) if `GROQ_API_KEY` isn't configured, so it always works.
+- **📝 Detailed**: the classic form — fill in title, type, URL, tags and content yourself, with an optional "✨ Suggest tags & type" AI assist.
+
 Behind the scenes: the API commits a markdown file to your repo via GitHub's API.
 Vercel auto-redeploys. You get a toast notification when it's live.
 

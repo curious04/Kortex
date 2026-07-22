@@ -1036,6 +1036,35 @@ a:hover { color: var(--accent-light); }
   background: var(--accent-glow);
 }
 
+/* ---------- add-note mode tabs (Quick capture vs Detailed) ---------- */
+.add-mode-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+.mode-tab {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: var(--radius-xs);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-family: var(--font);
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.mode-tab:hover { color: var(--text-primary); }
+.mode-tab.active {
+  background: var(--bg-card);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+#quick-content { min-height: 180px; }
+
 /* ---------- toast ---------- */
 .toast-container {
   position: fixed;

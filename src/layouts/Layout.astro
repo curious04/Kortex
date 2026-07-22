@@ -58,7 +58,32 @@ const ghOwner = SITE.github.owner;
     <div class="modal-backdrop" id="modal-add">
       <div class="modal">
         <h2 id="add-modal-title">Add to your brain</h2>
-        <form id="form-add">
+
+        <div class="add-mode-tabs" id="add-mode-tabs">
+          <button type="button" class="mode-tab active" data-mode="quick" id="tab-quick">⚡ Quick capture</button>
+          <button type="button" class="mode-tab" data-mode="detailed" id="tab-detailed">📝 Detailed</button>
+        </div>
+
+        <form id="form-quick-add">
+          <label for="quick-content">Just write it down — AI figures out the title, type &amp; tags</label>
+          <div class="content-field-wrap">
+            <textarea
+              id="quick-content"
+              name="text"
+              placeholder="Paste a link, jot a thought, drop a task... anything. We'll figure out the rest."
+              required
+            ></textarea>
+            <button type="button" class="mic-btn content-mic" data-target="quick-content" title="Dictate">🎤</button>
+          </div>
+          <p class="hint-inline" style="margin:6px 0 0;">✨ AI decides the title, type and tags, then publishes it right away.</p>
+
+          <div class="actions">
+            <button type="button" class="btn" id="btn-quick-cancel">Cancel</button>
+            <button type="submit" class="btn primary" id="quick-add-submit-btn">✨ Analyze &amp; Publish</button>
+          </div>
+        </form>
+
+        <form id="form-add" hidden>
           <input type="hidden" id="add-id" name="id" value="" />
           <label for="add-title">Title</label>
           <div class="input-with-mic">
@@ -303,10 +328,26 @@ const ghOwner = SITE.github.owner;
       const fileInput = document.getElementById('file-input');
       let uploadedFileUrl = null;
 
+      // ---- Quick capture vs Detailed mode ----
+      const addModeTabs = document.getElementById('add-mode-tabs');
+      const formQuickAdd = document.getElementById('form-quick-add');
+
+      function setAddMode(mode) {
+        formQuickAdd.hidden = mode !== 'quick';
+        form.hidden = mode !== 'detailed';
+        addModeTabs.querySelectorAll('.mode-tab').forEach((t) => t.classList.toggle('active', t.dataset.mode === mode));
+      }
+
+      addModeTabs?.addEventListener('click', (e) => {
+        const tab = e.target.closest('.mode-tab');
+        if (tab) setAddMode(tab.dataset.mode);
+      });
+
       function resetAddModal() {
         document.getElementById('add-id').value = '';
         document.getElementById('add-modal-title').textContent = 'Add to your brain';
         document.getElementById('add-submit-btn').textContent = 'Publish';
+        document.getElementById('quick-content').value = '';
       }
 
       window.openEditModal = function (note) {
@@ -319,14 +360,22 @@ const ghOwner = SITE.github.owner;
         document.getElementById('add-content').value = note.content || '';
         document.getElementById('add-modal-title').textContent = 'Edit note';
         document.getElementById('add-submit-btn').textContent = 'Save changes';
+        addModeTabs.hidden = true; // editing always uses the detailed form
+        setAddMode('detailed');
         modal.classList.add('open');
       };
 
       btnAdd?.addEventListener('click', () => {
         resetAddModal();
+        addModeTabs.hidden = false;
+        setAddMode('quick');
         modal.classList.add('open');
       });
       btnCancel?.addEventListener('click', () => {
+        modal.classList.remove('open');
+        resetAddModal();
+      });
+      document.getElementById('btn-quick-cancel')?.addEventListener('click', () => {
         modal.classList.remove('open');
         resetAddModal();
       });
@@ -334,6 +383,47 @@ const ghOwner = SITE.github.owner;
         if (e.target === modal) {
           modal.classList.remove('open');
           resetAddModal();
+        }
+      });
+
+      // ---- Quick capture submit: AI (or a heuristic fallback) files it and publishes right away ----
+      formQuickAdd?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const text = document.getElementById('quick-content').value.trim();
+        if (!text) return;
+
+        const btn = document.getElementById('quick-add-submit-btn');
+        const originalLabel = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Analyzing...';
+
+        try {
+          const res = await fetch('/api/content/quick-add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text }),
+          });
+          const result = await res.json();
+          if (!res.ok || result.error) throw new Error(result.error || 'Quick add failed');
+
+          modal.classList.remove('open');
+          resetAddModal();
+
+          const tagsPart = result.tags?.length ? `, ${result.tags.join(', ')}` : '';
+          const filedAs = `"${result.title}" (${result.type}${tagsPart})`;
+
+          if (result.action === 'committed') {
+            toast(`Filed as ${filedAs} — deploying...`, 'success');
+            window.kortexAwaitDeploy(result.commitSha, { onReady: () => location.reload() });
+          } else if (result.action === 'pr_created') {
+            toast(`Filed as ${filedAs} — submitted as a Pull Request!`, 'success');
+            setTimeout(() => location.reload(), 1500);
+          }
+        } catch (err) {
+          toast(err.message || 'Quick add failed', 'error');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = originalLabel;
         }
       });
 
