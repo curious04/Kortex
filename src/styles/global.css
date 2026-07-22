@@ -118,6 +118,7 @@ a:hover { color: var(--accent-light); }
   font-weight: 600;
   font-size: 0.95rem;
   letter-spacing: -0.02em;
+  flex-shrink: 0;
 }
 .brand:hover { color: var(--text-primary); }
 .brand .mark {
@@ -141,7 +142,16 @@ a:hover { color: var(--accent-light); }
   display: flex;
   align-items: center;
   gap: 6px;
+  /* Once logged in, the nav can hold 4-5 buttons + the avatar — on narrow screens
+     let it shrink and scroll internally instead of overflowing the page (which was
+     causing squished/clipped buttons in the header after signing in on mobile). */
+  min-width: 0;
+  flex-shrink: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
+.header-nav::-webkit-scrollbar { display: none; }
 
 /* buttons */
 .btn {
@@ -1128,6 +1138,16 @@ a:hover { color: var(--accent-light); }
   .grid { grid-template-columns: 1fr; }
   .stat { min-width: 33%; }
   .modal { padding: 24px; }
+
+  /* Compact header once signed in, so PRs/Owners/+Add/avatar/Sign out fit without
+     wrapping or overflowing the viewport. */
+  .site-header .wrap { gap: 8px; padding: 0 14px; }
+  .ask-label { display: none; }
+  .ask-link { padding: 8px 10px; }
+  .header-nav { gap: 4px; }
+  .header-nav .btn { padding: 6px 8px; font-size: 0.72rem; }
+  .header-nav .btn.sm { padding: 5px 7px; }
+  .avatar { width: 26px; height: 26px; }
 }
 
 /* ---------- mic dictation buttons ---------- */
