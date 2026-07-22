@@ -37,9 +37,13 @@ for (const n of notes) {
         <div class="graph-toolbar animate-in delay-1">
           <button type="button" class="btn sm" id="graph-rotate-toggle" title="Toggle auto-rotate">⟳ Rotate</button>
           <button type="button" class="btn sm" id="graph-reset-view" title="Reset camera">⤢ Fit view</button>
+          <button type="button" class="btn sm" id="graph-link-toggle" title="Manually connect two notes" hidden>🔗 Link nodes</button>
         </div>
       )}
     </div>
+    <p class="graph-link-hint" id="graph-link-hint" hidden>
+      Link mode: click a note, then click another to connect them &middot; click the same note twice to cancel.
+    </p>
 
     {nodes.length === 0 ? (
       <p class="empty">No notes yet. Add some, and link them with <code>[[Note Title]]</code> in the content to see them connect here.</p>
@@ -87,10 +91,13 @@ for (const n of notes) {
   const loading = document.getElementById("graph-loading");
   const rotateBtn = document.getElementById("graph-rotate-toggle");
   const resetBtn = document.getElementById("graph-reset-view");
+  const linkModeBtn = document.getElementById("graph-link-toggle");
+  const linkHint = document.getElementById("graph-link-hint");
 
   if (container) {
     const nodes = JSON.parse(container.dataset.nodes || "[]");
     const edges = JSON.parse(container.dataset.edges || "[]");
+    const edgeKeys = new Set(edges.map((e: any) => [e.source, e.target].sort().join("::")));
 
     // size nodes by how connected they are — hubs stand out more
     const degree = new Map<string, number>();
@@ -102,17 +109,76 @@ for (const n of notes) {
 
     const wrap = container.closest(".graph-canvas-wrap") as HTMLElement | null;
 
-    const Graph = new ForceGraph3D(container)
+    let linkMode = false;
+    let selectedSourceId: string | null = null;
+    let linking = false;
+
+    async function handleNodeClick(n: any) {
+      if (!linkMode) {
+        window.location.href = `/${n.id}/`;
+        return;
+      }
+      if (linking) return;
+      if (!selectedSourceId) {
+        selectedSourceId = n.id;
+        Graph.refresh();
+        (window as any).toast?.(`Selected "${n.title}" — click another note to link it to.`, "info");
+        return;
+      }
+      if (selectedSourceId === n.id) {
+        selectedSourceId = null;
+        Graph.refresh();
+        return;
+      }
+      const sourceId = selectedSourceId;
+      const sourceNode = nodes.find((x: any) => x.id === sourceId);
+      selectedSourceId = null;
+      Graph.refresh();
+
+      const key = [sourceId, n.id].sort().join("::");
+      if (edgeKeys.has(key)) {
+        (window as any).toast?.("Already linked", "info");
+        return;
+      }
+
+      linking = true;
+      try {
+        const res = await fetch("/api/content/link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sourceId, targetTitle: n.title }),
+        });
+        const result = await res.json();
+        if (!res.ok || result.error) throw new Error(result.error || "Linking failed");
+
+        edgeKeys.add(key);
+        if (result.alreadyLinked) {
+          (window as any).toast?.("Already linked", "info");
+          return;
+        }
+
+        edges.push({ source: sourceId, target: n.id });
+        Graph.graphData({ nodes, links: edges });
+
+        (window as any).toast?.(`Linked "${sourceNode?.title || sourceId}" → "${n.title}" — deploying...`, "success");
+        (window as any).kortexAwaitDeploy?.(result.commitSha, { onReady: () => location.reload() });
+      } catch (err: any) {
+        (window as any).toast?.(err.message || "Linking failed", "error");
+      } finally {
+        linking = false;
+      }
+    }
+
+    const Graph = new ForceGraph3D(container, { controlType: "orbit" })
       .graphData({ nodes, links: edges })
       .backgroundColor("#0a0a0c")
       .showNavInfo(false)
-      .controlType("orbit")
       .nodeLabel((n: any) => `<div class="graph-tip"><strong>${escapeHtml(n.title)}</strong><span>${escapeHtml(n.type)}</span></div>`)
       .nodeVal("val")
       .nodeRelSize(4)
       .nodeOpacity(0.92)
       .nodeResolution(16)
-      .nodeColor((n: any) => NODE_COLORS[n.type] || NODE_COLORS.note)
+      .nodeColor((n: any) => (n.id === selectedSourceId ? "#ffffff" : (NODE_COLORS[n.type] || NODE_COLORS.note)))
       .linkColor(() => "rgba(160,160,200,0.35)")
       .linkOpacity(0.4)
       .linkWidth(0.6)
@@ -120,8 +186,9 @@ for (const n of notes) {
       .linkDirectionalParticleWidth(1.4)
       .linkDirectionalParticleSpeed(0.006)
       .linkDirectionalParticleColor(() => "#818cf8")
-      .onNodeClick((n: any) => { window.location.href = `/${n.id}/`; })
-      .onNodeHover((n: any) => { container.style.cursor = n ? "pointer" : "default"; });
+      .enableNodeDrag(false)
+      .onNodeClick((n: any) => handleNodeClick(n))
+      .onNodeHover((n: any) => { container.style.cursor = n ? "pointer" : linkMode ? "crosshair" : "default"; });
 
     const controls: any = Graph.controls();
     controls.autoRotate = true;
@@ -151,6 +218,22 @@ for (const n of notes) {
       rotateBtn.classList.toggle("active", controls.autoRotate);
     });
     resetBtn?.addEventListener("click", () => Graph.zoomToFit(800, 60));
+
+    // ---- Owner-only manual linking: read-only for everyone else ----
+    function applyOwnerUI(isOwner: boolean) {
+      if (linkModeBtn) linkModeBtn.hidden = !isOwner;
+    }
+    if (typeof (window as any).KORTEX_IS_OWNER !== "undefined") applyOwnerUI((window as any).KORTEX_IS_OWNER);
+    document.addEventListener("kortex:auth", (e: any) => applyOwnerUI(e.detail?.isOwner));
+
+    linkModeBtn?.addEventListener("click", () => {
+      linkMode = !linkMode;
+      selectedSourceId = null;
+      Graph.refresh();
+      linkModeBtn.classList.toggle("active", linkMode);
+      if (linkHint) linkHint.hidden = !linkMode;
+      container.style.cursor = linkMode ? "crosshair" : "default";
+    });
   } else {
     loading?.remove();
   }

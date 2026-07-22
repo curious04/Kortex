@@ -87,3 +87,30 @@ export async function deleteNote(session: Session, id: string) {
   return { success: true, commitSha: result.commit?.sha as string | undefined };
 }
 
+/**
+ * Append a `[[Target Title]]` wiki-link to the end of a note's content — owners only.
+ * Used by the knowledge graph's manual "link nodes" mode. Leaves the rest of the note
+ * (frontmatter, existing body) untouched, so no need to re-parse/rebuild the whole file.
+ */
+export async function linkNotes(session: Session, sourceId: string, targetTitle: string) {
+  if (!(await isOwnerAsync(session.token, session.username))) {
+    throw new Error('Only owners can link notes directly');
+  }
+  const path = `content/notes/${sourceId}.md`;
+  const existing = await getFile(session.token, path);
+  if (!existing) throw new Error('Note not found');
+
+  const linkText = `[[${targetTitle}]]`;
+  if (existing.content.includes(linkText)) {
+    return { success: true, alreadyLinked: true as const };
+  }
+
+  const now = new Date().toISOString().slice(0, 10);
+  let updated = existing.content.replace(/^updated:\s*.+$/m, `updated: ${now}`);
+  updated = `${updated.replace(/\s+$/, '')}\n\n${linkText}\n`;
+
+  const result = await createFile(session.token, path, updated, `Link: ${sourceId} -> ${targetTitle}`);
+  return { success: true, commitSha: result.commit?.sha as string | undefined };
+}
+
+

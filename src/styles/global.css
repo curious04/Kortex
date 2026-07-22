@@ -36,6 +36,13 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 
+/* Guarantee the native `hidden` attribute always wins over any `display` set by a
+   class on the same element (e.g. `class="btn"` + `hidden`) — without this, author
+   rules like `.btn { display: inline-flex }` silently defeat the browser's default
+   `[hidden] { display: none }` UA rule since author styles beat UA styles by origin. */
+[hidden] { display: none !important; }
+
+
 body {
   margin: 0;
   font-family: var(--font);
@@ -807,6 +814,11 @@ a:hover { color: var(--accent-light); }
   background: var(--accent-glow);
   border-color: var(--accent);
   color: var(--accent-light);
+}
+.graph-link-hint {
+  color: var(--accent-light);
+  font-size: 0.8rem;
+  margin: 0 0 20px;
 }
 .graph-sub {
   color: var(--text-tertiary);

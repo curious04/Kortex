@@ -65,15 +65,16 @@ const ghOwner = SITE.github.owner;
         </div>
 
         <form id="form-quick-add">
-          <label for="quick-content">Just write it down — AI figures out the title, type &amp; tags</label>
+          <label for="quick-content">Just write it down — AI figures out the title, type &amp; tags <span class="hint-inline">— type <code>[[</code> to link a note</span></label>
           <div class="content-field-wrap">
             <textarea
               id="quick-content"
               name="text"
-              placeholder="Paste a link, jot a thought, drop a task... anything. We'll figure out the rest."
+              placeholder="Paste a link, jot a thought, drop a task... anything. We'll figure out the rest. Type [[ to link a note"
               required
             ></textarea>
             <button type="button" class="mic-btn content-mic" data-target="quick-content" title="Dictate">🎤</button>
+            <div class="wikilink-suggest" id="wikilink-suggest-quick" hidden></div>
           </div>
           <p class="hint-inline" style="margin:6px 0 0;">✨ AI decides the title, type and tags, then publishes it right away.</p>
 
@@ -487,11 +488,8 @@ const ghOwner = SITE.github.owner;
       });
 
       // ========== Wiki-link autocomplete: type [[ in content to fuzzy-search & click a note title ==========
-      const wikiSuggest = document.getElementById('wikilink-suggest');
       let allNoteTitles = [];
       let titlesLoaded = false;
-      let wikiActiveIndex = -1;
-      let wikiMatchStart = -1;
 
       async function ensureTitlesLoaded() {
         if (titlesLoaded) return;
@@ -516,91 +514,105 @@ const ghOwner = SITE.github.owner;
         return qi === query.length ? 10 : -1;
       }
 
-      function renderWikiSuggest(query) {
-        const matches = allNoteTitles
-          .map((n) => ({ ...n, score: fuzzyScore(query, n.title) }))
-          .filter((n) => n.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 6);
+      // Wires up "[[" fuzzy-search + click/keyboard-select wiki-linking for one textarea +
+      // its adjacent suggestion dropdown. Returns { insert } so other UI (e.g. the AI
+      // "related notes" chips) can reuse the same insertion logic.
+      function setupWikilinkAutocomplete(fieldEl, suggestEl) {
+        if (!fieldEl || !suggestEl) return null;
+        let activeIndex = -1;
+        let matchStart = -1;
 
-        if (!matches.length) {
-          wikiSuggest.hidden = true;
-          return;
+        function render(query) {
+          const matches = allNoteTitles
+            .map((n) => ({ ...n, score: fuzzyScore(query, n.title) }))
+            .filter((n) => n.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 6);
+
+          if (!matches.length) {
+            suggestEl.hidden = true;
+            return;
+          }
+
+          activeIndex = 0;
+          suggestEl.innerHTML = matches
+            .map(
+              (n, i) =>
+                `<div class="wikilink-suggest-item${i === 0 ? ' active' : ''}" data-title="${n.title.replace(/"/g, '&quot;')}">${n.title}</div>`,
+            )
+            .join('');
+          suggestEl.hidden = false;
         }
 
-        wikiActiveIndex = 0;
-        wikiSuggest.innerHTML = matches
-          .map(
-            (n, i) =>
-              `<div class="wikilink-suggest-item${i === 0 ? ' active' : ''}" data-title="${n.title.replace(/"/g, '&quot;')}">${n.title}</div>`,
-          )
-          .join('');
-        wikiSuggest.hidden = false;
+        function insert(title) {
+          const val = fieldEl.value;
+          const caret = matchStart >= 0 ? fieldEl.selectionStart : val.length;
+          const start = matchStart >= 0 ? matchStart : val.length;
+          const before = val.slice(0, start);
+          const after = val.slice(caret);
+          const sep = matchStart >= 0 || !before || before.endsWith('\n') || before.endsWith(' ') ? '' : ' ';
+          const insertText = `${sep}[[${title}]]`;
+          fieldEl.value = before + insertText + after;
+          const newCaret = before.length + insertText.length;
+          fieldEl.focus();
+          fieldEl.setSelectionRange(newCaret, newCaret);
+          suggestEl.hidden = true;
+          matchStart = -1;
+        }
+
+        fieldEl.addEventListener('input', async () => {
+          const caret = fieldEl.selectionStart;
+          const before = fieldEl.value.slice(0, caret);
+          const match = before.match(/\[\[([^[\]]*)$/);
+          if (!match) {
+            suggestEl.hidden = true;
+            matchStart = -1;
+            return;
+          }
+          matchStart = caret - match[0].length;
+          await ensureTitlesLoaded();
+          render(match[1]);
+        });
+
+        fieldEl.addEventListener('keydown', (e) => {
+          if (suggestEl.hidden) return;
+          const items = [...suggestEl.querySelectorAll('.wikilink-suggest-item')];
+          if (!items.length) return;
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIndex = (activeIndex + 1) % items.length;
+            items.forEach((it, i) => it.classList.toggle('active', i === activeIndex));
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIndex = (activeIndex - 1 + items.length) % items.length;
+            items.forEach((it, i) => it.classList.toggle('active', i === activeIndex));
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            insert(items[activeIndex].dataset.title);
+          } else if (e.key === 'Escape') {
+            suggestEl.hidden = true;
+          }
+        });
+
+        suggestEl.addEventListener('mousedown', (e) => {
+          const item = e.target.closest('.wikilink-suggest-item');
+          if (item) {
+            e.preventDefault();
+            insert(item.dataset.title);
+          }
+        });
+
+        fieldEl.addEventListener('blur', () => {
+          setTimeout(() => {
+            suggestEl.hidden = true;
+          }, 150);
+        });
+
+        return { insert };
       }
 
-      function insertWikiLink(title) {
-        const val = contentInput.value;
-        const caret = wikiMatchStart >= 0 ? contentInput.selectionStart : val.length;
-        const start = wikiMatchStart >= 0 ? wikiMatchStart : val.length;
-        const before = val.slice(0, start);
-        const after = val.slice(caret);
-        const sep = wikiMatchStart >= 0 || !before || before.endsWith('\n') || before.endsWith(' ') ? '' : ' ';
-        const insertText = `${sep}[[${title}]]`;
-        contentInput.value = before + insertText + after;
-        const newCaret = before.length + insertText.length;
-        contentInput.focus();
-        contentInput.setSelectionRange(newCaret, newCaret);
-        wikiSuggest.hidden = true;
-        wikiMatchStart = -1;
-      }
-
-      contentInput?.addEventListener('input', async () => {
-        const caret = contentInput.selectionStart;
-        const before = contentInput.value.slice(0, caret);
-        const match = before.match(/\[\[([^[\]]*)$/);
-        if (!match) {
-          wikiSuggest.hidden = true;
-          wikiMatchStart = -1;
-          return;
-        }
-        wikiMatchStart = caret - match[0].length;
-        await ensureTitlesLoaded();
-        renderWikiSuggest(match[1]);
-      });
-
-      contentInput?.addEventListener('keydown', (e) => {
-        if (wikiSuggest.hidden) return;
-        const items = [...wikiSuggest.querySelectorAll('.wikilink-suggest-item')];
-        if (!items.length) return;
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          wikiActiveIndex = (wikiActiveIndex + 1) % items.length;
-          items.forEach((it, i) => it.classList.toggle('active', i === wikiActiveIndex));
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          wikiActiveIndex = (wikiActiveIndex - 1 + items.length) % items.length;
-          items.forEach((it, i) => it.classList.toggle('active', i === wikiActiveIndex));
-        } else if (e.key === 'Enter') {
-          e.preventDefault();
-          insertWikiLink(items[wikiActiveIndex].dataset.title);
-        } else if (e.key === 'Escape') {
-          wikiSuggest.hidden = true;
-        }
-      });
-
-      wikiSuggest?.addEventListener('mousedown', (e) => {
-        const item = e.target.closest('.wikilink-suggest-item');
-        if (item) {
-          e.preventDefault();
-          insertWikiLink(item.dataset.title);
-        }
-      });
-
-      contentInput?.addEventListener('blur', () => {
-        setTimeout(() => {
-          wikiSuggest.hidden = true;
-        }, 150);
-      });
+      const contentWikilink = setupWikilinkAutocomplete(contentInput, document.getElementById('wikilink-suggest'));
+      setupWikilinkAutocomplete(document.getElementById('quick-content'), document.getElementById('wikilink-suggest-quick'));
 
       // ========== Voice dictation (Web Speech API, free & offline-capable) ==========
       const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -637,7 +649,7 @@ const ghOwner = SITE.github.owner;
 
       relatedBox?.addEventListener('click', (e) => {
         const chip = e.target.closest('.chip');
-        if (chip) insertWikiLink(chip.dataset.title);
+        if (chip) contentWikilink?.insert(chip.dataset.title);
       });
 
       btnSuggest?.addEventListener('click', async () => {
